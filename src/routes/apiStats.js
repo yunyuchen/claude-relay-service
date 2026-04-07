@@ -1669,4 +1669,381 @@ router.get('/api/redemption-history', async (req, res) => {
   }
 })
 
+// ==================== 公开排行榜 API ====================
+
+const costRankService = require('../services/costRankService')
+
+// 📊 获取费用排行榜（公开接口）
+router.get('/insights/ranking', async (req, res) => {
+  try {
+    const { timeRange = 'today', limit = 10 } = req.query
+    const validRanges = ['today', '7days', '30days', 'all']
+    if (!validRanges.includes(timeRange)) {
+      return res.status(400).json({ success: false, error: 'Invalid time range' })
+    }
+
+    const maxLimit = Math.min(parseInt(limit) || 10, 20)
+
+    // 从预计算索引获取排序后的 key IDs
+    const sortedKeyIds = await costRankService.getSortedKeyIds(timeRange, 'desc', 0, maxLimit)
+
+    if (sortedKeyIds.length === 0) {
+      return res.json({ success: true, data: [] })
+    }
+
+    // 批量获取 API Key 基本信息和费用
+    const keys = await redis.batchGetApiKeys(sortedKeyIds)
+    const costs = await costRankService.getBatchKeyCosts(timeRange, sortedKeyIds)
+
+    // 批量获取 usage 数据（按时间范围）
+    const client = redis.getClient()
+    const today = redis.getDateStringInTimezone()
+    const tzDate = redis.getDateInTimezone()
+    const currentMonth = `${tzDate.getUTCFullYear()}-${String(tzDate.getUTCMonth() + 1).padStart(2, '0')}`
+
+    // 对于 all 模式，需要汇总每个 key 的所有 alltime 模型数据
+    let allTimeUsageMap = null
+    if (timeRange === 'all') {
+      allTimeUsageMap = new Map()
+      for (const keyId of sortedKeyIds) {
+        const modelKeys = await redis.scanKeys(`usage:${keyId}:model:alltime:*`)
+        if (modelKeys.length === 0) { allTimeUsageMap.set(keyId, {}); continue }
+        const mp = client.pipeline()
+        modelKeys.forEach((mk) => mp.hgetall(mk))
+        const results = await mp.exec()
+        let totalReqs = 0, totalAll = 0, totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreate = 0
+        results.forEach(([e, d]) => {
+          if (e || !d) return
+          totalReqs += parseInt(d.requests || 0)
+          totalAll += parseInt(d.allTokens || 0) || (parseInt(d.inputTokens || 0) + parseInt(d.outputTokens || 0) + parseInt(d.cacheReadTokens || 0) + parseInt(d.cacheCreateTokens || 0))
+          totalInput += parseInt(d.inputTokens || 0)
+          totalOutput += parseInt(d.outputTokens || 0)
+          totalCacheRead += parseInt(d.cacheReadTokens || 0)
+          totalCacheCreate += parseInt(d.cacheCreateTokens || 0)
+        })
+        allTimeUsageMap.set(keyId, { requests: totalReqs, allTokens: totalAll, inputTokens: totalInput, outputTokens: totalOutput, cacheReadTokens: totalCacheRead, cacheCreateTokens: totalCacheCreate })
+      }
+    }
+
+    // 对于 today/7days/30days，聚合对应日期范围的 daily 数据
+    let usageResults = []
+    if (timeRange !== 'all') {
+      if (timeRange === 'today') {
+        const pipeline = client.pipeline()
+        for (const keyId of sortedKeyIds) {
+          pipeline.hgetall(`usage:daily:${keyId}:${today}`)
+        }
+        usageResults = await pipeline.exec()
+      } else {
+        // 7days/30days: 汇总每天的 daily 数据
+        const daysBack = timeRange === '7days' ? 6 : 29
+        const dates = []
+        for (let i = daysBack; i >= 0; i--) {
+          const d = new Date()
+          d.setDate(d.getDate() - i)
+          dates.push(redis.getDateStringInTimezone(d))
+        }
+
+        for (const keyId of sortedKeyIds) {
+          const dp = client.pipeline()
+          dates.forEach((date) => dp.hgetall(`usage:daily:${keyId}:${date}`))
+          const dayResults = await dp.exec()
+
+          let totalReqs = 0, totalAll = 0, totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheCreate = 0
+          dayResults.forEach(([e, d]) => {
+            if (e || !d) return
+            totalReqs += parseInt(d.requests || 0)
+            totalAll += parseInt(d.allTokens || 0)
+            totalInput += parseInt(d.inputTokens || 0)
+            totalOutput += parseInt(d.outputTokens || 0)
+            totalCacheRead += parseInt(d.cacheReadTokens || 0)
+            totalCacheCreate += parseInt(d.cacheCreateTokens || 0)
+          })
+
+          usageResults.push([null, {
+            requests: String(totalReqs), allTokens: String(totalAll),
+            inputTokens: String(totalInput), outputTokens: String(totalOutput),
+            cacheReadTokens: String(totalCacheRead), cacheCreateTokens: String(totalCacheCreate)
+          }])
+        }
+      }
+    }
+
+    const ranking = sortedKeyIds
+      .map((keyId, i) => {
+        const key = keys.find((k) => k.id === keyId)
+        if (!key || key.isDeleted) return null
+        const cost = costs.get(keyId) || 0
+
+        let u = {}
+        if (timeRange === 'all') {
+          u = allTimeUsageMap.get(keyId) || {}
+        } else {
+          const [err, usage] = usageResults[i] || [null, {}]
+          u = (!err && usage) ? usage : {}
+        }
+
+        return {
+          name: key.name || keyId.substring(0, 8),
+          cost,
+          requests: parseInt(u.requests || 0),
+          allTokens: parseInt(u.allTokens || 0),
+          cacheReadTokens: parseInt(u.cacheReadTokens || 0),
+          inputTokens: parseInt(u.inputTokens || 0),
+          outputTokens: parseInt(u.outputTokens || 0),
+          cacheCreateTokens: parseInt(u.cacheCreateTokens || 0)
+        }
+      })
+      .filter(Boolean)
+
+    return res.json({ success: true, data: ranking })
+  } catch (error) {
+    logger.error('❌ Failed to get public ranking:', error)
+    return res.status(500).json({ success: false, error: 'Failed to get ranking data' })
+  }
+})
+
+// 📊 获取模型使用统计（公开接口）
+router.get('/insights/models', async (req, res) => {
+  try {
+    const today = redis.getDateStringInTimezone()
+    const pattern = `usage:model:daily:*:${today}`
+    const allResults = await redis.scanAndGetAllChunked(pattern)
+
+    const modelStatsMap = new Map()
+    for (const { key, data } of allResults) {
+      const match = key.match(/usage:model:daily:(.+):\d{4}-\d{2}-\d{2}$/)
+      if (!match || !data) continue
+
+      const model = match[1]
+      const stats = modelStatsMap.get(model) || { requests: 0, allTokens: 0 }
+      stats.requests += parseInt(data.requests) || 0
+      stats.allTokens += parseInt(data.allTokens) || 0
+      modelStatsMap.set(model, stats)
+    }
+
+    const modelStats = Array.from(modelStatsMap.entries())
+      .map(([model, stats]) => ({ model, ...stats }))
+      .sort((a, b) => b.requests - a.requests)
+      .slice(0, 10)
+
+    return res.json({ success: true, data: modelStats })
+  } catch (error) {
+    logger.error('❌ Failed to get public model stats:', error)
+    return res.status(500).json({ success: false, error: 'Failed to get model stats' })
+  }
+})
+
+// 📊 获取每日活跃数据（公开接口，近30天）
+router.get('/insights/activity', async (req, res) => {
+  try {
+    const days = []
+    const now = new Date()
+
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const dateStr = redis.getDateStringInTimezone(d)
+
+      // 从全局每日统计获取请求数
+      const dailyKey = `usage:global:daily:${dateStr}`
+      const data = await redis.client.hgetall(dailyKey)
+      days.push({
+        date: dateStr,
+        requests: parseInt(data?.requests || 0),
+        tokens: parseInt(data?.allTokens || 0)
+      })
+    }
+
+    return res.json({ success: true, data: days })
+  } catch (error) {
+    logger.error('❌ Failed to get activity data:', error)
+    return res.status(500).json({ success: false, error: 'Failed to get activity data' })
+  }
+})
+
+// 📊 综合洞察数据（公开接口）
+router.get('/insights/overview', async (req, res) => {
+  try {
+    const client = redis.getClient()
+    const today = redis.getDateStringInTimezone()
+    const tzDate = redis.getDateInTimezone()
+    const currentMonth = `${tzDate.getUTCFullYear()}-${String(tzDate.getUTCMonth() + 1).padStart(2, '0')}`
+
+    // 获取所有活跃 API Key
+    const activeKeyIds = await redis.client.smembers('apikey:set:active')
+    const allKeyIds = await redis.scanApiKeyIds()
+    const keyIds = activeKeyIds.length > 0 ? activeKeyIds : allKeyIds
+    const keys = await redis.batchGetApiKeys(keyIds)
+    const activeKeys = keys.filter((k) => !k.isDeleted)
+
+    // ========== 1. 模型偏好画像 ==========
+    const userProfiles = []
+    const pipeline1 = client.pipeline()
+    for (const key of activeKeys) {
+      pipeline1.keys(`usage:${key.id}:model:alltime:*`)
+    }
+    const modelKeysResults = await pipeline1.exec()
+
+    for (let i = 0; i < activeKeys.length; i++) {
+      const key = activeKeys[i]
+      const [err, modelKeys] = modelKeysResults[i] || [null, []]
+      if (err || !modelKeys || modelKeys.length === 0) continue
+
+      // 批量获取每个模型的使用数据
+      const mp = client.pipeline()
+      modelKeys.forEach((mk) => mp.hgetall(mk))
+      const modelDataResults = await mp.exec()
+
+      const models = []
+      let totalReqs = 0
+      modelKeys.forEach((mk, j) => {
+        const [e, d] = modelDataResults[j] || [null, {}]
+        if (e || !d) return
+        const modelName = mk.match(/alltime:(.+)$/)?.[1] || 'unknown'
+        const reqs = parseInt(d.requests || 0)
+        totalReqs += reqs
+        models.push({ model: modelName, requests: reqs })
+      })
+
+      models.sort((a, b) => b.requests - a.requests)
+      if (totalReqs > 0) {
+        userProfiles.push({
+          name: key.name || key.id.substring(0, 8),
+          topModel: models[0]?.model || '-',
+          modelCount: models.length,
+          totalRequests: totalReqs,
+          models: models.slice(0, 3)
+        })
+      }
+    }
+    userProfiles.sort((a, b) => b.totalRequests - a.totalRequests)
+
+    // ========== 2. 连续活跃天数 ==========
+    const streaks = []
+    for (const key of activeKeys) {
+      let streak = 0
+      const d = new Date()
+      for (let j = 0; j < 90; j++) {
+        const dateStr = redis.getDateStringInTimezone(d)
+        const exists = await client.exists(`usage:daily:${key.id}:${dateStr}`)
+        if (exists) {
+          streak++
+        } else if (j > 0) {
+          break
+        }
+        d.setDate(d.getDate() - 1)
+      }
+      if (streak > 0) {
+        streaks.push({ name: key.name || key.id.substring(0, 8), streak })
+      }
+    }
+    streaks.sort((a, b) => b.streak - a.streak)
+
+    // ========== 3. 缓存节省估算 ==========
+    let totalCacheReadTokens = 0
+    let totalInputTokens = 0
+    const monthlyPipeline = client.pipeline()
+    for (const key of activeKeys) {
+      monthlyPipeline.hgetall(`usage:monthly:${key.id}:${currentMonth}`)
+    }
+    const monthlyResults = await monthlyPipeline.exec()
+    monthlyResults.forEach(([err, data]) => {
+      if (!err && data) {
+        totalCacheReadTokens += parseInt(data.cacheReadTokens || 0)
+        totalInputTokens += parseInt(data.inputTokens || 0) + parseInt(data.cacheReadTokens || 0)
+      }
+    })
+    // 粗略估算：缓存读取按 input 价格的 90% 折扣计算节省
+    const cacheRate = totalInputTokens > 0 ? (totalCacheReadTokens / totalInputTokens * 100) : 0
+    const estimatedSaving = totalCacheReadTokens * 0.9 * 3 / 1_000_000 // ~$3/MTok input 的 90%
+
+    // ========== 4. 日均花费趋势（近14天） ==========
+    const dailyCosts = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const dateStr = redis.getDateStringInTimezone(d)
+
+      // 汇总所有 key 的每日费用
+      const costPipeline = client.pipeline()
+      for (const key of activeKeys) {
+        costPipeline.get(`usage:cost:daily:${key.id}:${dateStr}`)
+      }
+      const costResults = await costPipeline.exec()
+      let dayCost = 0
+      costResults.forEach(([err, val]) => {
+        if (!err && val) dayCost += parseFloat(val)
+      })
+
+      const globalData = await client.hgetall(`usage:global:daily:${dateStr}`)
+      dailyCosts.push({
+        date: dateStr,
+        cost: dayCost,
+        requests: parseInt(globalData?.requests || 0)
+      })
+    }
+
+    // ========== 5. 高峰时段（今日按小时） ==========
+    const hourlyStats = []
+    const hourlyPipeline = client.pipeline()
+    for (let h = 0; h < 24; h++) {
+      const hStr = String(h).padStart(2, '0')
+      hourlyPipeline.keys(`usage:*:model:hourly:*:${today}:${hStr}`)
+    }
+    const hourlyResults = await hourlyPipeline.exec()
+    for (let h = 0; h < 24; h++) {
+      const [err, hourKeys] = hourlyResults[h] || [null, []]
+      if (err || !hourKeys) {
+        hourlyStats.push({ hour: h, requests: 0 })
+        continue
+      }
+      // 从 model hourly 统计获取
+      const modelHourlyKey = `usage:model:hourly:*:${today}:${String(h).padStart(2, '0')}`
+      const matchedKeys = await redis.scanKeys(modelHourlyKey)
+      let hourReqs = 0
+      if (matchedKeys.length > 0) {
+        const hp = client.pipeline()
+        matchedKeys.forEach((k) => hp.hget(k, 'requests'))
+        const hResults = await hp.exec()
+        hResults.forEach(([e, v]) => {
+          if (!e && v) hourReqs += parseInt(v)
+        })
+      }
+      hourlyStats.push({ hour: h, requests: hourReqs })
+    }
+
+    // ========== 6. 月度成本预测 ==========
+    const dayOfMonth = tzDate.getUTCDate()
+    const daysInMonth = new Date(tzDate.getUTCFullYear(), tzDate.getUTCMonth() + 1, 0).getDate()
+    const monthCostSoFar = dailyCosts.slice(-dayOfMonth).reduce((s, d) => s + d.cost, 0)
+    const projectedMonthCost = dayOfMonth > 0 ? (monthCostSoFar / dayOfMonth) * daysInMonth : 0
+
+    return res.json({
+      success: true,
+      data: {
+        userProfiles: userProfiles.slice(0, 15),
+        streaks: streaks.slice(0, 10),
+        cache: {
+          rate: parseFloat(cacheRate.toFixed(1)),
+          saving: parseFloat(estimatedSaving.toFixed(2)),
+          totalCacheReadTokens,
+          totalInputTokens
+        },
+        dailyCosts,
+        hourlyStats,
+        costProjection: {
+          monthCostSoFar: parseFloat(monthCostSoFar.toFixed(2)),
+          projected: parseFloat(projectedMonthCost.toFixed(2)),
+          dayOfMonth,
+          daysInMonth
+        }
+      }
+    })
+  } catch (error) {
+    logger.error('❌ Failed to get insights overview:', error)
+    return res.status(500).json({ success: false, error: 'Failed to get insights data' })
+  }
+})
+
 module.exports = router

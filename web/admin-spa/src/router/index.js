@@ -17,6 +17,7 @@ const AccountUsageRecordsView = () => import('@/views/AccountUsageRecordsView.vu
 const SettingsView = () => import('@/views/SettingsView.vue')
 const ApiStatsView = () => import('@/views/ApiStatsView.vue')
 const QuotaCardsView = () => import('@/views/QuotaCardsView.vue')
+const InsightsView = () => import('@/views/InsightsView.vue')
 
 const routes = [
   {
@@ -159,6 +160,12 @@ const routes = [
       }
     ]
   },
+  {
+    path: '/insights',
+    name: 'Insights',
+    component: InsightsView,
+    meta: { requiresAuth: false }
+  },
   // 捕获所有未匹配的路由
   {
     path: '/:pathMatch(.*)*',
@@ -211,8 +218,8 @@ router.beforeEach(async (to, from, next) => {
     return next()
   }
 
-  // API Stats 页面不需要认证，直接放行
-  if (to.path === '/api-stats' || to.path.startsWith('/api-stats')) {
+  // 公开页面不需要认证，直接放行
+  if (to.path === '/api-stats' || to.path.startsWith('/api-stats') || to.path === '/insights') {
     next()
   } else if (to.path === '/user-login') {
     // 如果已经是用户登录状态，重定向到用户仪表板

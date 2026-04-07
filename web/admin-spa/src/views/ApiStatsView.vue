@@ -41,6 +41,14 @@
             <i class="fas fa-user text-sm md:text-base" />
             <span class="text-xs font-semibold tracking-wide md:text-sm">用户登录</span>
           </router-link>
+          <!-- 排行洞察按钮 -->
+          <router-link
+            class="admin-button-refined flex items-center gap-2 rounded-2xl px-4 py-2 transition-all duration-300 md:px-5 md:py-2.5"
+            to="/insights"
+          >
+            <i class="fas fa-chart-bar text-sm md:text-base" />
+            <span class="text-xs font-semibold tracking-wide md:text-sm">排行榜</span>
+          </router-link>
           <!-- 管理后台按钮 -->
           <router-link
             v-if="oemSettings.showAdminButton !== false"
