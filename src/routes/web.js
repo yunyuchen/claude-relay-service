@@ -12,6 +12,35 @@ const router = express.Router()
 // 🏠 服务静态文件
 router.use('/assets', express.static(path.join(__dirname, '../../web/assets')))
 
+// 📦 Codex 一键安装脚本（动态替换域名）
+router.get('/codex-setup.sh', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}/openai`
+  const scriptPath = path.join(__dirname, '../../web/assets/codex-setup.sh')
+  try {
+    let content = fs.readFileSync(scriptPath, 'utf8')
+    content = content.replace(/https:\/\/YOUR_DOMAIN\/openai/g, baseUrl)
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="codex-setup.sh"')
+    res.send(content)
+  } catch {
+    res.status(404).send('Script not found')
+  }
+})
+
+router.get('/codex-setup.ps1', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}/openai`
+  const scriptPath = path.join(__dirname, '../../web/assets/codex-setup.ps1')
+  try {
+    let content = fs.readFileSync(scriptPath, 'utf8')
+    content = content.replace(/https:\/\/YOUR_DOMAIN\/openai/g, baseUrl)
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.setHeader('Content-Disposition', 'attachment; filename="codex-setup.ps1"')
+    res.send(content)
+  } catch {
+    res.status(404).send('Script not found')
+  }
+})
+
 // 🌐 页面路由重定向到新版 admin-spa
 router.get('/', (req, res) => {
   res.redirect(301, '/admin-next/api-stats')
