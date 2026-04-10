@@ -1870,10 +1870,25 @@ router.get('/insights/activity', async (req, res) => {
 // 📊 综合洞察数据（公开接口）
 router.get('/insights/overview', async (req, res) => {
   try {
+    const { timeRange = 'all' } = req.query
     const client = redis.getClient()
     const today = redis.getDateStringInTimezone()
     const tzDate = redis.getDateInTimezone()
     const currentMonth = `${tzDate.getUTCFullYear()}-${String(tzDate.getUTCMonth() + 1).padStart(2, '0')}`
+
+    // 根据 timeRange 生成日期范围
+    let dateRangeForModels = null // null 表示 alltime
+    if (timeRange === 'today') {
+      dateRangeForModels = [today]
+    } else if (timeRange === '7days' || timeRange === '30days') {
+      const daysBack = timeRange === '7days' ? 6 : 29
+      dateRangeForModels = []
+      for (let i = daysBack; i >= 0; i--) {
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        dateRangeForModels.push(redis.getDateStringInTimezone(d))
+      }
+    }
 
     // 获取所有活跃 API Key
     const activeKeyIds = await redis.client.smembers('apikey:set:active')
@@ -1884,42 +1899,97 @@ router.get('/insights/overview', async (req, res) => {
 
     // ========== 1. 模型偏好画像 ==========
     const userProfiles = []
-    const pipeline1 = client.pipeline()
-    for (const key of activeKeys) {
-      pipeline1.keys(`usage:${key.id}:model:alltime:*`)
-    }
-    const modelKeysResults = await pipeline1.exec()
 
-    for (let i = 0; i < activeKeys.length; i++) {
-      const key = activeKeys[i]
-      const [err, modelKeys] = modelKeysResults[i] || [null, []]
-      if (err || !modelKeys || modelKeys.length === 0) continue
+    if (!dateRangeForModels) {
+      // alltime: 使用 alltime 汇总数据
+      const pipeline1 = client.pipeline()
+      for (const key of activeKeys) {
+        pipeline1.keys(`usage:${key.id}:model:alltime:*`)
+      }
+      const modelKeysResults = await pipeline1.exec()
 
-      // 批量获取每个模型的使用数据
-      const mp = client.pipeline()
-      modelKeys.forEach((mk) => mp.hgetall(mk))
-      const modelDataResults = await mp.exec()
+      for (let i = 0; i < activeKeys.length; i++) {
+        const key = activeKeys[i]
+        const [err, modelKeys] = modelKeysResults[i] || [null, []]
+        if (err || !modelKeys || modelKeys.length === 0) continue
 
-      const models = []
-      let totalReqs = 0
-      modelKeys.forEach((mk, j) => {
-        const [e, d] = modelDataResults[j] || [null, {}]
-        if (e || !d) return
-        const modelName = mk.match(/alltime:(.+)$/)?.[1] || 'unknown'
-        const reqs = parseInt(d.requests || 0)
-        totalReqs += reqs
-        models.push({ model: modelName, requests: reqs })
-      })
+        const mp = client.pipeline()
+        modelKeys.forEach((mk) => mp.hgetall(mk))
+        const modelDataResults = await mp.exec()
 
-      models.sort((a, b) => b.requests - a.requests)
-      if (totalReqs > 0) {
-        userProfiles.push({
-          name: key.name || key.id.substring(0, 8),
-          topModel: models[0]?.model || '-',
-          modelCount: models.length,
-          totalRequests: totalReqs,
-          models: models.slice(0, 3)
+        const models = []
+        let totalReqs = 0
+        modelKeys.forEach((mk, j) => {
+          const [e, d] = modelDataResults[j] || [null, {}]
+          if (e || !d) return
+          const modelName = mk.match(/alltime:(.+)$/)?.[1] || 'unknown'
+          const reqs = parseInt(d.requests || 0)
+          totalReqs += reqs
+          models.push({ model: modelName, requests: reqs })
         })
+
+        models.sort((a, b) => b.requests - a.requests)
+        if (totalReqs > 0) {
+          userProfiles.push({
+            name: key.name || key.id.substring(0, 8),
+            topModel: models[0]?.model || '-',
+            modelCount: models.length,
+            totalRequests: totalReqs,
+            models: models.slice(0, 3)
+          })
+        }
+      }
+    } else {
+      // today/7days/30days: 聚合 model:daily 数据
+      for (const key of activeKeys) {
+        // 扫描该用户所有 model:daily key 以获取模型列表
+        const allModelDailyKeys = await redis.scanKeys(`usage:${key.id}:model:daily:*`)
+        if (allModelDailyKeys.length === 0) continue
+
+        // 提取唯一模型名
+        const modelSet = new Set()
+        allModelDailyKeys.forEach((k) => {
+          const m = k.match(/model:daily:(.+):\d{4}-\d{2}-\d{2}$/)
+          if (m) modelSet.add(m[1])
+        })
+
+        // 对每个模型，聚合日期范围内的 daily 数据
+        const models = []
+        let totalReqs = 0
+        const mp = client.pipeline()
+        const modelNames = [...modelSet]
+        for (const model of modelNames) {
+          for (const date of dateRangeForModels) {
+            mp.hgetall(`usage:${key.id}:model:daily:${model}:${date}`)
+          }
+        }
+        const results = await mp.exec()
+
+        let idx = 0
+        for (const model of modelNames) {
+          let reqs = 0
+          for (let d = 0; d < dateRangeForModels.length; d++) {
+            const [e, data] = results[idx++] || [null, {}]
+            if (!e && data && data.requests) {
+              reqs += parseInt(data.requests)
+            }
+          }
+          if (reqs > 0) {
+            totalReqs += reqs
+            models.push({ model, requests: reqs })
+          }
+        }
+
+        models.sort((a, b) => b.requests - a.requests)
+        if (totalReqs > 0) {
+          userProfiles.push({
+            name: key.name || key.id.substring(0, 8),
+            topModel: models[0]?.model || '-',
+            modelCount: models.length,
+            totalRequests: totalReqs,
+            models: models.slice(0, 3)
+          })
+        }
       }
     }
     userProfiles.sort((a, b) => b.totalRequests - a.totalRequests)

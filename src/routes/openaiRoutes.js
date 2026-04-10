@@ -15,6 +15,7 @@ const ProxyHelper = require('../utils/proxyHelper')
 const { updateRateLimitCounters } = require('../utils/rateLimitHelper')
 const { IncrementalSSEParser } = require('../utils/sseParser')
 const { getSafeMessage } = require('../utils/errorSanitizer')
+const upstreamErrorHelper = require('../utils/upstreamErrorHelper')
 
 // Codex CLI 系统提示词（非 Codex CLI 客户端请求时注入，统一端点也使用）
 const CODEX_CLI_INSTRUCTIONS =
@@ -530,17 +531,54 @@ const handleResponses = async (req, res) => {
       }
 
       try {
-        await unifiedOpenAIScheduler.markAccountUnauthorized(
-          accountId,
-          'openai',
-          sessionHash,
-          reason
-        )
+        if (unauthorizedStatus === 401 && accountType === 'openai') {
+          // 递增退避：读取连续 401 次数，逐步加大暂停时间，超过阈值永久禁用
+          const acct = await openaiAccountService.getAccount(accountId).catch(() => null)
+          const errCount = parseInt(acct?.unauthorizedCount || '0', 10) + 1
+          const MAX_401_RETRIES = 3
+
+          if (errCount >= MAX_401_RETRIES) {
+            // 连续 401 达到阈值，永久标记
+            await unifiedOpenAIScheduler.markAccountUnauthorized(
+              accountId,
+              'openai',
+              sessionHash,
+              reason
+            )
+            logger.warn(
+              `🚫 OpenAI account ${accountId} permanently disabled after ${errCount} consecutive 401 errors`
+            )
+          } else {
+            // 递增暂停：第1次 5min，第2次 10min
+            const pauseSeconds = errCount * 300
+            await upstreamErrorHelper
+              .markTempUnavailable(accountId, 'openai', 401, pauseSeconds)
+              .catch(() => {})
+            // 递增 unauthorizedCount
+            await openaiAccountService
+              .updateAccount(accountId, {
+                unauthorizedCount: errCount.toString(),
+                unauthorizedAt: new Date().toISOString()
+              })
+              .catch(() => {})
+            if (sessionHash) {
+              await unifiedOpenAIScheduler._deleteSessionMapping(sessionHash).catch(() => {})
+            }
+            logger.warn(
+              `⏱️ OpenAI account ${accountId} temporarily paused ${pauseSeconds}s due to 401 (attempt ${errCount}/${MAX_401_RETRIES})`
+            )
+          }
+        } else {
+          // 402 或其他账户类型仍使用永久标记
+          await unifiedOpenAIScheduler.markAccountUnauthorized(
+            accountId,
+            accountType || 'openai',
+            sessionHash,
+            reason
+          )
+        }
       } catch (markError) {
-        logger.error(
-          `❌ Failed to mark OpenAI account unauthorized after ${unauthorizedStatus}:`,
-          markError
-        )
+        logger.error(`❌ Failed to mark OpenAI account after ${unauthorizedStatus}:`, markError)
       }
 
       let errorResponse = errorData
@@ -566,6 +604,10 @@ const handleResponses = async (req, res) => {
           `✅ Removing rate limit for OpenAI account ${accountId} after successful request`
         )
         await unifiedOpenAIScheduler.removeAccountRateLimit(accountId, 'openai')
+      }
+      // 请求成功，清除连续 401 计数
+      if (accountType === 'openai') {
+        openaiAccountService.updateAccount(accountId, { unauthorizedCount: '0' }).catch(() => {})
       }
     }
 
@@ -798,6 +840,10 @@ const handleResponses = async (req, res) => {
           )
           await unifiedOpenAIScheduler.removeAccountRateLimit(accountId, 'openai')
         }
+        // 流式请求成功，清除连续 401 计数
+        if (accountType === 'openai') {
+          openaiAccountService.updateAccount(accountId, { unauthorizedCount: '0' }).catch(() => {})
+        }
       }
 
       res.end()
@@ -850,14 +896,49 @@ const handleResponses = async (req, res) => {
       }
 
       try {
-        await unifiedOpenAIScheduler.markAccountUnauthorized(
-          accountId,
-          accountType || 'openai',
-          sessionHash,
-          reason
-        )
+        if (status === 401 && (accountType || 'openai') === 'openai') {
+          const acct = await openaiAccountService.getAccount(accountId).catch(() => null)
+          const errCount = parseInt(acct?.unauthorizedCount || '0', 10) + 1
+          const MAX_401_RETRIES = 3
+
+          if (errCount >= MAX_401_RETRIES) {
+            await unifiedOpenAIScheduler.markAccountUnauthorized(
+              accountId,
+              'openai',
+              sessionHash,
+              reason
+            )
+            logger.warn(
+              `🚫 OpenAI account ${accountId} permanently disabled after ${errCount} consecutive 401 errors (catch handler)`
+            )
+          } else {
+            const pauseSeconds = errCount * 300
+            await upstreamErrorHelper
+              .markTempUnavailable(accountId, 'openai', 401, pauseSeconds)
+              .catch(() => {})
+            await openaiAccountService
+              .updateAccount(accountId, {
+                unauthorizedCount: errCount.toString(),
+                unauthorizedAt: new Date().toISOString()
+              })
+              .catch(() => {})
+            if (sessionHash) {
+              await unifiedOpenAIScheduler._deleteSessionMapping(sessionHash).catch(() => {})
+            }
+            logger.warn(
+              `⏱️ OpenAI account ${accountId} temporarily paused ${pauseSeconds}s due to 401 (catch handler, attempt ${errCount}/${MAX_401_RETRIES})`
+            )
+          }
+        } else {
+          await unifiedOpenAIScheduler.markAccountUnauthorized(
+            accountId,
+            accountType || 'openai',
+            sessionHash,
+            reason
+          )
+        }
       } catch (markError) {
-        logger.error('❌ Failed to mark OpenAI account unauthorized in catch handler:', markError)
+        logger.error('❌ Failed to mark OpenAI account after error in catch handler:', markError)
       }
     }
 
