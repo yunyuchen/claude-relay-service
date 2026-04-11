@@ -18,6 +18,7 @@ const SettingsView = () => import('@/views/SettingsView.vue')
 const ApiStatsView = () => import('@/views/ApiStatsView.vue')
 const QuotaCardsView = () => import('@/views/QuotaCardsView.vue')
 const InsightsView = () => import('@/views/InsightsView.vue')
+const RequestDetailsView = () => import('@/views/RequestDetailsView.vue')
 
 const routes = [
   {
@@ -165,6 +166,18 @@ const routes = [
     name: 'Insights',
     component: InsightsView,
     meta: { requiresAuth: false }
+  },
+  {
+    path: '/request-details',
+    component: MainLayout,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'RequestDetails',
+        component: RequestDetailsView
+      }
+    ]
   },
   // 捕获所有未匹配的路由
   {
