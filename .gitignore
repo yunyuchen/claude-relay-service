@@ -13,6 +13,7 @@ pnpm-debug.log*
 # Claude specific directories
 .claude/
 .superpowers/
+.omx/
 
 # MCP configuration (local only)
 .mcp.json
