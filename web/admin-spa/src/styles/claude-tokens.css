@@ -74,11 +74,13 @@ body.cr-claude-body::before {
   display: none !important;
 }
 
+html.cr-claude-root,
 html:has(body.cr-claude-body),
 body.cr-claude-body {
   background: #faf9f5 !important;
   background-image: none !important;
 }
+html.dark.cr-claude-root,
 html.dark:has(body.cr-claude-body),
 html.dark body.cr-claude-body {
   background: #221812 !important;
