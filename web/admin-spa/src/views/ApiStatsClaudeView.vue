@@ -255,7 +255,6 @@
               <span class="cr-key-name">{{ row.name }}</span>
               <span class="cr-val cr-mono">{{ formatCurrency(row.cost) }}</span>
               <span class="cr-t cr-mono">{{ formatTokensShort(row.tokens) }} tok</span>
-              <span class="cr-state" :class="row.stateClass">{{ row.stateLabel }}</span>
             </div>
           </div>
         </template>
@@ -510,16 +509,11 @@ const perKeyRows = computed(() => {
       }
       const cost = Number(usagePeriod?.cost ?? 0)
       const tokens = Number(usagePeriod?.allTokens ?? 0)
-      // Per-key limits are not available; all keys show OK state
-      const stateClass = 'ok'
-      const stateLabel = 'OK'
       return {
         id: k.apiId || k.id || k.name,
         name: k.name || k.apiId || 'unnamed',
         cost,
-        tokens,
-        stateClass,
-        stateLabel
+        tokens
       }
     })
     .sort((a, b) => b.cost - a.cost)
@@ -1079,7 +1073,7 @@ onMounted(() => {
   text-decoration: underline;
 }
 .cr-key-row {
-  grid-template-columns: 32px 1fr 110px 120px 80px;
+  grid-template-columns: 32px 1fr 110px 120px;
   gap: 14px;
 }
 .cr-key-row .cr-key-name {
