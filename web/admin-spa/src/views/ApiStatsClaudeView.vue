@@ -37,7 +37,7 @@
         <div class="cr-card cr-auth-card">
           <h1 class="cr-serif cr-auth-title">Enter your API key</h1>
           <p class="cr-auth-sub">Sign in to view your usage, quota and model breakdown.</p>
-          <ApiKeyInput />
+          <ApiKeyInputClaude />
         </div>
       </section>
 
@@ -321,7 +321,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useApiStatsStore } from '@/stores/apistats'
 import { useThemeStore } from '@/stores/theme'
-import ApiKeyInput from '@/components/apistats/ApiKeyInput.vue'
+import ApiKeyInputClaude from '@/components/apistats/ApiKeyInputClaude.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import TutorialView from './TutorialView.vue'
 import '@/styles/claude-tokens.css'
