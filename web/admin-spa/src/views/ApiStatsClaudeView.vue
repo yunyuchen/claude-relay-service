@@ -173,9 +173,57 @@
           </div>
         </div>
 
-        <!-- Dual / Models / Per-key 续下（后续任务） -->
+        <!-- Dual block: quota + services -->
+        <div class="cr-dual">
+          <div>
+            <div class="cr-sec-head">
+              <h3 class="cr-serif">Quota status</h3>
+              <span v-if="quotaRows.length" class="cr-sec-meta"
+                >{{ quotaRows.length }} limits configured</span
+              >
+              <span v-else class="cr-sec-meta">No limits set</span>
+            </div>
+            <div v-if="quotaRows.length" class="cr-card">
+              <div v-for="row in quotaRows" :key="row.key" class="cr-row cr-lim-row">
+                <span class="cr-k">{{ row.label }}</span>
+                <div class="cr-bar">
+                  <div :class="row.stateClass" :style="{ width: row.percent + '%' }"></div>
+                </div>
+                <span class="cr-v cr-mono">{{ row.valueText }}</span>
+                <span class="cr-state" :class="row.stateClass">{{ row.percent }}%</span>
+              </div>
+            </div>
+            <div v-else class="cr-card cr-empty">No limits configured for this key.</div>
+          </div>
+
+          <div>
+            <div class="cr-sec-head">
+              <h3 class="cr-serif">Services</h3>
+              <span class="cr-sec-meta"
+                >{{ activeServicesCount }} of {{ serviceRows.length }} active</span
+              >
+            </div>
+            <div class="cr-card">
+              <div
+                v-for="row in serviceRows"
+                :key="row.name"
+                class="cr-row cr-svc-row"
+                :class="{ empty: !row.cost }"
+              >
+                <span class="cr-name">{{ row.label }}</span>
+                <span class="cr-val cr-mono">{{ row.cost ? formatCurrency(row.cost) : '—' }}</span>
+                <div class="cr-bar">
+                  <div v-if="row.cost" :style="{ width: row.percent + '%' }"></div>
+                </div>
+                <span class="cr-pct cr-mono">{{ row.cost ? row.percent + '%' : '—' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Models / Per-key 续下（后续任务） -->
         <div class="cr-card" style="padding: 18px; margin-top: 24px">
-          <p>Stats body — continued in Task 9+</p>
+          <p>Stats body — continued in Task 10+</p>
         </div>
       </section>
     </div>
@@ -195,9 +243,19 @@ import '@/styles/claude-tokens.css'
 const apiStatsStore = useApiStatsStore()
 const themeStore = useThemeStore()
 
-// eslint-disable-next-line no-unused-vars
-const { apiId, apiKey, loading, statsPeriod, statsData, oemSettings, multiKeyMode, apiIds } =
-  storeToRefs(apiStatsStore)
+/* eslint-disable no-unused-vars */
+const {
+  apiId,
+  apiKey,
+  loading,
+  statsPeriod,
+  statsData,
+  oemSettings,
+  multiKeyMode,
+  apiIds,
+  modelStats
+} = storeToRefs(apiStatsStore)
+/* eslint-enable no-unused-vars */
 
 const { loadOemSettings, loadApiKeyFromStorage, loadServiceRates, switchPeriod, reset } =
   apiStatsStore
@@ -263,6 +321,121 @@ const expiresInText = computed(() => {
 function handleSignOut() {
   reset()
   currentTab.value = 'stats'
+}
+
+const quotaRows = computed(() => {
+  const rows = []
+  const limits = statsData.value?.limits || {}
+
+  // 总费用限制
+  if (limits.totalCostLimit != null && limits.totalCostLimit > 0) {
+    const used = limits.currentTotalCost || 0
+    const pct = Math.min(100, Math.round((used / limits.totalCostLimit) * 100))
+    rows.push({
+      key: 'totalCost',
+      label: 'Total cost',
+      percent: pct,
+      valueText: `$${used.toFixed(2)} / $${Number(limits.totalCostLimit).toFixed(2)}`,
+      stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
+    })
+  }
+
+  // 每日费用限制
+  if (limits.dailyCostLimit != null && limits.dailyCostLimit > 0) {
+    const used = limits.currentDailyCost || 0
+    const pct = Math.min(100, Math.round((used / limits.dailyCostLimit) * 100))
+    rows.push({
+      key: 'daily',
+      label: 'Daily cost',
+      percent: pct,
+      valueText: `$${used.toFixed(2)} / $${Number(limits.dailyCostLimit).toFixed(2)}`,
+      stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
+    })
+  }
+
+  // 时间窗口 Token 限制
+  if (limits.tokenLimit != null && limits.tokenLimit > 0) {
+    const used = limits.currentWindowTokens || 0
+    const pct = Math.min(100, Math.round((used / limits.tokenLimit) * 100))
+    rows.push({
+      key: 'token',
+      label: 'Tokens',
+      percent: pct,
+      valueText: `${used.toLocaleString()} / ${Number(limits.tokenLimit).toLocaleString()}`,
+      stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
+    })
+  }
+
+  // 时间窗口请求数限制
+  if (limits.rateLimitRequests != null && limits.rateLimitRequests > 0) {
+    const used = limits.currentWindowRequests || 0
+    const pct = Math.min(100, Math.round((used / limits.rateLimitRequests) * 100))
+    rows.push({
+      key: 'requests',
+      label: 'Requests',
+      percent: pct,
+      valueText: `${used} / ${limits.rateLimitRequests}`,
+      stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
+    })
+  }
+
+  return rows
+})
+
+const KNOWN_SERVICES = [
+  { key: 'claude', label: 'Claude' },
+  { key: 'codex', label: 'Codex' },
+  { key: 'gemini', label: 'Gemini' },
+  { key: 'droid', label: 'Droid' },
+  { key: 'bedrock', label: 'Bedrock' },
+  { key: 'azure', label: 'Azure OpenAI' }
+]
+
+function getServiceFromModel(model) {
+  if (!model) return 'claude'
+  const m = model.toLowerCase()
+  if (m.includes('claude') || m.includes('sonnet') || m.includes('opus') || m.includes('haiku'))
+    return 'claude'
+  if (m.includes('gpt') || m.includes('o1') || m.includes('o3') || m.includes('o4')) return 'codex'
+  if (m.includes('gemini')) return 'gemini'
+  if (m.includes('droid') || m.includes('factory')) return 'droid'
+  if (m.includes('bedrock') || m.includes('amazon')) return 'bedrock'
+  if (m.includes('azure')) return 'azure'
+  return 'claude'
+}
+
+const serviceRows = computed(() => {
+  const stats = {}
+  KNOWN_SERVICES.forEach(({ key }) => {
+    stats[key] = 0
+  })
+
+  const models = modelStats.value || []
+  models.forEach((model) => {
+    const svc = getServiceFromModel(model.model)
+    if (stats[svc] !== undefined) {
+      stats[svc] += model.costs?.total || 0
+    }
+  })
+
+  const totalCost = Object.values(stats).reduce((a, b) => a + b, 0) || 1
+
+  return KNOWN_SERVICES.map(({ key, label }) => {
+    const cost = stats[key] || 0
+    return {
+      name: key,
+      label,
+      cost,
+      percent: Math.round((cost / totalCost) * 100)
+    }
+  }).sort((a, b) => b.cost - a.cost)
+})
+
+const activeServicesCount = computed(() => serviceRows.value.filter((r) => r.cost > 0).length)
+
+function formatCurrency(v) {
+  const n = Number(v) || 0
+  return '$' + n.toFixed(2)
 }
 
 onMounted(() => {
@@ -656,5 +829,125 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: 6px;
   color: var(--cr-text-sec);
+}
+
+.cr-sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 32px 0 12px 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cr-sec-head h3 {
+  font-size: 20px;
+  color: var(--cr-text);
+  letter-spacing: -0.01em;
+  font-weight: 500;
+}
+.cr-sec-head .cr-sec-meta {
+  font-size: 13px;
+  color: var(--cr-text-ter);
+}
+.cr-dual {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+@media (min-width: 1280px) {
+  .cr-dual {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.cr-row {
+  display: grid;
+  align-items: center;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--cr-border);
+  gap: 16px;
+}
+.cr-row:last-child {
+  border-bottom: 0;
+}
+.cr-lim-row {
+  grid-template-columns: 90px 1fr 130px 80px;
+}
+.cr-lim-row .cr-k {
+  font-size: 14px;
+  color: var(--cr-text);
+  font-weight: 500;
+}
+.cr-bar {
+  height: 6px;
+  background: var(--cr-surface-soft);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cr-bar > div {
+  height: 100%;
+  border-radius: 3px;
+}
+.cr-bar > div.ok {
+  background: var(--cr-ok);
+}
+.cr-bar > div.warn {
+  background: var(--cr-warn);
+}
+.cr-bar > div.danger {
+  background: var(--cr-danger);
+}
+.cr-lim-row .cr-v {
+  font-size: 13px;
+  text-align: right;
+  color: var(--cr-text-sec);
+}
+.cr-state {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-align: center;
+}
+.cr-state.ok {
+  background: var(--cr-ok-soft);
+  color: var(--cr-ok);
+}
+.cr-state.warn {
+  background: var(--cr-warn-soft);
+  color: var(--cr-warn);
+}
+.cr-state.danger {
+  background: var(--cr-danger-soft);
+  color: var(--cr-danger);
+}
+.cr-svc-row {
+  grid-template-columns: 110px 100px 1fr 50px;
+}
+.cr-svc-row .cr-name {
+  font-size: 14px;
+  color: var(--cr-text);
+  font-weight: 500;
+}
+.cr-svc-row .cr-val {
+  font-size: 14px;
+  text-align: right;
+  color: var(--cr-text);
+}
+.cr-svc-row.empty .cr-val,
+.cr-svc-row.empty .cr-name {
+  color: var(--cr-text-ter);
+}
+.cr-svc-row .cr-bar > div {
+  background: var(--cr-coral);
+}
+.cr-svc-row .cr-pct {
+  font-size: 13px;
+  color: var(--cr-text-ter);
+  text-align: right;
+}
+.cr-empty {
+  padding: 18px 22px;
+  color: var(--cr-text-ter);
+  font-size: 13px;
 }
 </style>
