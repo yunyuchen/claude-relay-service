@@ -221,9 +221,31 @@
           </div>
         </div>
 
-        <!-- Models / Per-key 续下（后续任务） -->
+        <!-- Top models -->
+        <div class="cr-sec-head">
+          <h3 class="cr-serif">Top models</h3>
+          <span class="cr-sec-meta">
+            Showing {{ displayedModels.length }} of {{ sortedModels.length }}
+          </span>
+        </div>
+        <div class="cr-card">
+          <div v-for="(m, i) in displayedModels" :key="m.model" class="cr-row cr-mod-row">
+            <span class="cr-rank cr-serif">{{ String(i + 1).padStart(2, '0') }}</span>
+            <span class="cr-m">{{ m.model }}</span>
+            <span class="cr-val cr-mono">{{ formatCurrency(m.cost) }}</span>
+            <span class="cr-t cr-mono">{{ formatTokensShort(m.allTokens) }} tok</span>
+          </div>
+          <div v-if="sortedModels.length > 5 && !modelsExpanded" class="cr-mod-more">
+            <a @click="modelsExpanded = true">Expand all →</a>
+          </div>
+          <div v-else-if="modelsExpanded && sortedModels.length > 5" class="cr-mod-more">
+            <a @click="modelsExpanded = false">Collapse ↑</a>
+          </div>
+        </div>
+
+        <!-- Per-key breakdown / footer 续下（后续任务） -->
         <div class="cr-card" style="padding: 18px; margin-top: 24px">
-          <p>Stats body — continued in Task 10+</p>
+          <p>Stats body — continued in Task 11+</p>
         </div>
       </section>
     </div>
@@ -433,6 +455,23 @@ const serviceRows = computed(() => {
 })
 
 const activeServicesCount = computed(() => serviceRows.value.filter((r) => r.cost > 0).length)
+
+const modelsExpanded = ref(false)
+
+const sortedModels = computed(() => {
+  const raw = apiStatsStore.modelStats || []
+  return [...raw]
+    .map((m) => ({
+      model: m.model || m.name || 'unknown',
+      cost: Number(m.costs?.real ?? m.costs?.total ?? m.cost ?? m.totalCost ?? 0),
+      allTokens: Number(m.allTokens ?? m.tokens ?? m.totalTokens ?? 0)
+    }))
+    .sort((a, b) => b.cost - a.cost)
+})
+
+const displayedModels = computed(() =>
+  modelsExpanded.value ? sortedModels.value : sortedModels.value.slice(0, 5)
+)
 
 function formatCurrency(v) {
   const n = Number(v) || 0
@@ -950,5 +989,46 @@ onMounted(() => {
   padding: 18px 22px;
   color: var(--cr-text-ter);
   font-size: 13px;
+}
+.cr-mod-row {
+  grid-template-columns: 32px 1fr 110px 100px;
+  gap: 14px;
+}
+.cr-mod-row .cr-rank {
+  font-size: 14px;
+  color: var(--cr-text-ter);
+  text-align: center;
+}
+.cr-mod-row .cr-m {
+  font-size: 14px;
+  color: var(--cr-text);
+  font-weight: 500;
+  word-break: break-all;
+}
+.cr-mod-row .cr-val {
+  font-size: 14px;
+  text-align: right;
+  color: var(--cr-text);
+}
+.cr-mod-row .cr-t {
+  font-size: 13px;
+  color: var(--cr-text-ter);
+  text-align: right;
+}
+.cr-mod-more {
+  padding: 14px 22px;
+  display: flex;
+  justify-content: center;
+  border-top: 1px solid var(--cr-border);
+}
+.cr-mod-more a {
+  font-size: 13px;
+  color: var(--cr-coral);
+  font-weight: 500;
+  cursor: pointer;
+}
+.cr-mod-more a:hover {
+  color: var(--cr-coral-hover);
+  text-decoration: underline;
 }
 </style>
