@@ -67,9 +67,22 @@
   font-optical-sizing: auto;
 }
 
-/* Claude 视图激活时屏蔽 Legacy 的 body::before 径向光晕 */
+/* Claude 视图激活时：
+   1. 屏蔽 Legacy 的 body::before 径向光晕
+   2. 用 CSS 兜底设置 body/html 背景（JS 也会设置 inline style，但这里双保险） */
 body.cr-claude-body::before {
   display: none !important;
+}
+
+html:has(body.cr-claude-body),
+body.cr-claude-body {
+  background: #faf9f5 !important;
+  background-image: none !important;
+}
+html.dark:has(body.cr-claude-body),
+html.dark body.cr-claude-body {
+  background: #1f1b17 !important;
+  background-image: none !important;
 }
 
 /* 通用卡片 */
