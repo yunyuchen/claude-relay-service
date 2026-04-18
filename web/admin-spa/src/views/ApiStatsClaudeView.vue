@@ -59,9 +59,55 @@
           <p>Track spend, limits, and model breakdown across all connected services.</p>
         </div>
 
-        <!-- Toolbar / Hero / Quota+Services / Models / Per-key 等后续任务填充 -->
-        <div class="cr-card" style="padding: 18px">
-          <p>Stats body — will be built in Task 7+</p>
+        <!-- Toolbar: identity + period + signout -->
+        <div class="cr-toolbar">
+          <div class="cr-identity">
+            <div class="cr-avatar cr-serif">
+              {{ (statsData?.name || 'K').charAt(0).toUpperCase() }}
+            </div>
+            <div>
+              <div class="cr-id-name">{{ statsData?.name || apiId }}</div>
+              <div class="cr-id-meta">
+                <span class="cr-status-dot"></span>
+                {{ statsData?.isActive === false ? 'Inactive' : 'Active' }}
+                <span v-if="multiKeyMode" class="cr-sep">·</span>
+                <span v-if="multiKeyMode" class="cr-badge">{{ apiIds.length }} keys</span>
+                <span v-if="statsData?.expiresAt" class="cr-sep">·</span>
+                <span v-if="statsData?.expiresAt">Expires {{ expiresInText }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="cr-toolbar-right">
+            <div class="cr-period">
+              <button
+                :class="{ active: statsPeriod === 'daily' }"
+                :disabled="loading"
+                @click="switchPeriod('daily')"
+              >
+                Today
+              </button>
+              <button
+                :class="{ active: statsPeriod === 'monthly' }"
+                :disabled="loading"
+                @click="switchPeriod('monthly')"
+              >
+                This month
+              </button>
+              <button
+                :class="{ active: statsPeriod === 'alltime' }"
+                :disabled="loading"
+                @click="switchPeriod('alltime')"
+              >
+                All time
+              </button>
+            </div>
+            <button class="cr-btn-ghost" @click="handleSignOut">Sign out</button>
+          </div>
+        </div>
+
+        <!-- Hero / Quota+Services / Models / Per-key 续下（后续任务） -->
+        <div class="cr-card" style="padding: 18px; margin-top: 24px">
+          <p>Stats body — continued in Task 8+</p>
         </div>
       </section>
     </div>
@@ -81,12 +127,32 @@ import '@/styles/claude-tokens.css'
 const apiStatsStore = useApiStatsStore()
 const themeStore = useThemeStore()
 
-const { apiId, oemSettings } = storeToRefs(apiStatsStore)
-const { loadOemSettings, loadApiKeyFromStorage, loadServiceRates } = apiStatsStore
+// eslint-disable-next-line no-unused-vars
+const { apiId, apiKey, loading, statsPeriod, statsData, oemSettings, multiKeyMode, apiIds } =
+  storeToRefs(apiStatsStore)
+
+const { loadOemSettings, loadApiKeyFromStorage, loadServiceRates, switchPeriod, reset } =
+  apiStatsStore
 
 const isDarkMode = computed(() => themeStore.isDarkMode)
 
 const currentTab = ref('stats')
+
+const expiresInText = computed(() => {
+  const exp = statsData.value?.expiresAt
+  if (!exp) return ''
+  const days = Math.max(0, Math.round((new Date(exp) - Date.now()) / 86400000))
+  if (days === 0) return 'today'
+  if (days === 1) return 'in 1 day'
+  if (days < 30) return `in ${days} days`
+  if (days < 365) return `in ${Math.round(days / 30)} months`
+  return `in ${Math.round(days / 365)} years`
+})
+
+function handleSignOut() {
+  reset()
+  currentTab.value = 'stats'
+}
 
 onMounted(() => {
   loadOemSettings()
@@ -240,5 +306,119 @@ onMounted(() => {
 }
 .cr-back:hover {
   color: var(--cr-coral-hover);
+}
+
+.cr-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-border);
+  border-radius: 12px;
+  padding: 10px 16px 10px 10px;
+  margin-bottom: 28px;
+}
+.cr-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cr-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--cr-coral-soft);
+  color: var(--cr-coral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+.cr-id-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--cr-text);
+  letter-spacing: -0.01em;
+}
+.cr-id-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cr-text-sec);
+  font-size: 12px;
+  margin-top: 1px;
+  flex-wrap: wrap;
+}
+.cr-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cr-ok);
+  box-shadow: 0 0 0 3px rgba(101, 134, 110, 0.15);
+  display: inline-block;
+}
+.cr-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--cr-coral-soft);
+  color: var(--cr-coral);
+  font-weight: 500;
+  font-size: 11px;
+}
+.cr-toolbar-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.cr-btn-ghost {
+  font-size: 13px;
+  padding: 8px 14px;
+  border: 1px solid var(--cr-border);
+  background: var(--cr-surface);
+  border-radius: 8px;
+  color: var(--cr-text-sec);
+  cursor: pointer;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.cr-btn-ghost:hover {
+  border-color: var(--cr-border-strong);
+  color: var(--cr-text);
+  background: var(--cr-surface-soft);
+}
+.cr-period {
+  display: inline-flex;
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-border);
+  border-radius: 999px;
+  padding: 3px;
+}
+.cr-period > button {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--cr-text-sec);
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.cr-period > button.active {
+  background: var(--cr-text);
+  color: var(--cr-bg);
+}
+.cr-period > button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cr-period > button:hover:not(.active):not(:disabled) {
+  color: var(--cr-text);
 }
 </style>
