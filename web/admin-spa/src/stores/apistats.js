@@ -359,11 +359,13 @@ export const useApiStatsStore = defineStore('apistats', () => {
       }
     } catch (err) {
       console.error('Error loading OEM settings:', err)
-      // 失败时使用默认值
-      oemSettings.value = {
-        siteName: 'Claude Relay Service',
-        siteIcon: '',
-        siteIconData: ''
+      // 只在首次加载（无既有数据）时回落默认；避免并发调用的失败分支
+      // 擦掉已经加载成功的数据（如 useClaudeStyleStats 会被意外重置）
+      if (!oemSettings.value?.updatedAt) {
+        oemSettings.value = {
+          ...oemSettings.value,
+          siteName: oemSettings.value?.siteName || 'Claude Relay Service'
+        }
       }
     } finally {
       oemLoading.value = false
