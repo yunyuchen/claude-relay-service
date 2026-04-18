@@ -280,6 +280,46 @@
                   </td>
                 </tr>
 
+                <!-- Claude.ai 风统计页开关 -->
+                <tr class="border-b border-gray-100 dark:border-gray-700">
+                  <td class="w-48 whitespace-nowrap px-6 py-4">
+                    <div class="flex items-center">
+                      <div
+                        class="mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-rose-500"
+                      >
+                        <i class="fas fa-palette text-xs text-white" />
+                      </div>
+                      <div>
+                        <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                          Claude.ai 风统计页
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Stats Style</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex items-center">
+                      <label class="inline-flex cursor-pointer items-center">
+                        <input
+                          v-model="oemSettings.useClaudeStyleStats"
+                          class="peer sr-only"
+                          type="checkbox"
+                        />
+                        <div
+                          class="peer relative h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
+                        ></div>
+                        <span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{
+                          oemSettings.useClaudeStyleStats ? '已启用' : '已禁用'
+                        }}</span>
+                      </label>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      启用后 /api-stats 和 /insights 切换为 Claude.ai 风格（暖米 +
+                      珊瑚橙）。关闭立刻回到原样式。
+                    </p>
+                  </td>
+                </tr>
+
                 <!-- 操作按钮 -->
                 <tr>
                   <td class="px-6 py-6" colspan="2">
@@ -428,6 +468,42 @@
                 </label>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                   隐藏后，用户需要直接访问 /admin/login 页面登录
+                </p>
+              </div>
+            </div>
+
+            <!-- Claude.ai 风统计页开关卡片 -->
+            <div class="glass-card p-4">
+              <div class="mb-3 flex items-center gap-3">
+                <div
+                  class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-rose-500 text-white shadow-md"
+                >
+                  <i class="fas fa-palette"></i>
+                </div>
+                <div>
+                  <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    Claude.ai 风统计页
+                  </h3>
+                  <p class="text-sm text-gray-500 dark:text-gray-400">切换统计页视觉风格</p>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <label class="inline-flex cursor-pointer items-center">
+                  <input
+                    v-model="oemSettings.useClaudeStyleStats"
+                    class="peer sr-only"
+                    type="checkbox"
+                  />
+                  <div
+                    class="peer relative h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:peer-focus:ring-blue-800"
+                  ></div>
+                  <span class="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">{{
+                    oemSettings.useClaudeStyleStats ? '已启用' : '已禁用'
+                  }}</span>
+                </label>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                  启用后 /api-stats 和 /insights 切换为 Claude.ai 风格（暖米 +
+                  珊瑚橙）。关闭立刻回到原样式。
                 </p>
               </div>
             </div>
@@ -3127,7 +3203,8 @@ const saveOemSettings = async () => {
       siteIcon: oemSettings.value.siteIcon,
       siteIconData: oemSettings.value.siteIconData,
       showAdminButton: oemSettings.value.showAdminButton,
-      apiStatsNotice: oemSettings.value.apiStatsNotice
+      apiStatsNotice: oemSettings.value.apiStatsNotice,
+      useClaudeStyleStats: oemSettings.value.useClaudeStyleStats === true
     }
     const result = await settingsStore.saveOemSettings(settings)
     if (result && result.success) {
