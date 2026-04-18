@@ -59,217 +59,265 @@
           <p>Track spend, limits, and model breakdown across all connected services.</p>
         </div>
 
-        <!-- Toolbar: identity + period + signout -->
-        <div class="cr-toolbar">
-          <div class="cr-identity">
-            <div class="cr-avatar cr-serif">
-              {{ (statsData?.name || 'K').charAt(0).toUpperCase() }}
-            </div>
-            <div>
-              <div class="cr-id-name">{{ statsData?.name || apiId }}</div>
-              <div class="cr-id-meta">
-                <span class="cr-status-dot"></span>
-                {{ statsData?.isActive === false ? 'Inactive' : 'Active' }}
-                <span v-if="multiKeyMode" class="cr-sep">·</span>
-                <span v-if="multiKeyMode" class="cr-badge">{{ apiIds.length }} keys</span>
-                <span v-if="statsData?.expiresAt" class="cr-sep">·</span>
-                <span v-if="statsData?.expiresAt">Expires {{ expiresInText }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="cr-toolbar-right">
-            <div class="cr-period">
-              <button
-                :class="{ active: statsPeriod === 'daily' }"
-                :disabled="loading"
-                @click="switchPeriod('daily')"
-              >
-                Today
-              </button>
-              <button
-                :class="{ active: statsPeriod === 'monthly' }"
-                :disabled="loading"
-                @click="switchPeriod('monthly')"
-              >
-                This month
-              </button>
-              <button
-                :class="{ active: statsPeriod === 'alltime' }"
-                :disabled="loading"
-                @click="switchPeriod('alltime')"
-              >
-                All time
-              </button>
-            </div>
-            <button class="cr-btn-ghost" @click="handleSignOut">Sign out</button>
-          </div>
+        <!-- Inline error -->
+        <div v-if="error" class="cr-alert">
+          <i class="fas fa-exclamation-triangle cr-alert-icon"></i>
+          <span>{{ error }}</span>
         </div>
 
-        <!-- Hero row -->
-        <div class="cr-hero-row">
-          <div class="cr-hero">
-            <div class="cr-hero-label">{{ periodLabel }} spend</div>
-            <div class="cr-hero-n cr-serif cr-mono">
-              {{ formatCurrencyHero(currentPeriodData.cost) }}
-            </div>
-            <div class="cr-delta-row">
-              <span v-if="costDelta !== null" class="cr-delta" :class="costDelta < 0 ? 'neg' : ''">
-                {{ costDelta >= 0 ? '↑' : '↓' }} {{ Math.abs(costDelta).toFixed(0) }}% vs previous
-              </span>
-              <span class="cr-sub-note">Updated just now</span>
-            </div>
-          </div>
-
-          <div class="cr-kpi">
-            <div class="cr-kpi-label">Tokens</div>
-            <div class="cr-kpi-n cr-serif cr-mono">
-              {{ formatTokensShort(currentPeriodData.allTokens) }}
-            </div>
-            <div class="cr-kpi-d">
-              <span class="cr-pill cr-mono"
-                >in {{ formatTokensShort(currentPeriodData.inputTokens) }}</span
-              >
-              <span class="cr-pill cr-mono"
-                >out {{ formatTokensShort(currentPeriodData.outputTokens) }}</span
-              >
-              <span
-                v-if="
-                  (currentPeriodData.cacheReadTokens || 0) +
-                    (currentPeriodData.cacheCreateTokens || 0) >
-                  0
-                "
-                class="cr-pill cr-mono"
-                >cache
-                {{
-                  formatTokensShort(
-                    (currentPeriodData.cacheReadTokens || 0) +
-                      (currentPeriodData.cacheCreateTokens || 0)
-                  )
-                }}</span
-              >
-            </div>
-          </div>
-
-          <div class="cr-kpi">
-            <div class="cr-kpi-label">Requests</div>
-            <div class="cr-kpi-n cr-serif cr-mono">
-              {{ (currentPeriodData.requests || 0).toLocaleString() }}
-            </div>
-            <div class="cr-kpi-d">
-              <span v-if="successRate !== null" class="cr-pill cr-mono"
-                >success {{ successRate.toFixed(1) }}%</span
-              >
-            </div>
-          </div>
-
-          <div v-if="avgLatencyMs !== null" class="cr-kpi cr-kpi-lat">
-            <div class="cr-kpi-label">Latency</div>
-            <div class="cr-kpi-n cr-serif cr-mono">
-              {{ Math.round(avgLatencyMs) }}<span class="cr-unit">ms</span>
-            </div>
-            <div class="cr-kpi-d">
-              <span class="cr-pill cr-mono">avg</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Dual block: quota + services -->
-        <div class="cr-dual">
-          <div>
-            <div class="cr-sec-head">
-              <h3 class="cr-serif">Quota status</h3>
-              <span v-if="quotaRows.length" class="cr-sec-meta"
-                >{{ quotaRows.length }} limits configured</span
-              >
-              <span v-else class="cr-sec-meta">No limits set</span>
-            </div>
-            <div v-if="quotaRows.length" class="cr-card">
-              <div v-for="row in quotaRows" :key="row.key" class="cr-row cr-lim-row">
-                <span class="cr-k">{{ row.label }}</span>
-                <div class="cr-bar">
-                  <div :class="row.stateClass" :style="{ width: row.percent + '%' }"></div>
-                </div>
-                <span class="cr-v cr-mono">{{ row.valueText }}</span>
-                <span class="cr-state" :class="row.stateClass">{{ row.percent }}%</span>
-              </div>
-            </div>
-            <div v-else class="cr-card cr-empty">No limits configured for this key.</div>
-          </div>
-
-          <div>
-            <div class="cr-sec-head">
-              <h3 class="cr-serif">Services</h3>
-              <span class="cr-sec-meta"
-                >{{ activeServicesCount }} of {{ serviceRows.length }} active</span
-              >
-            </div>
-            <div class="cr-card">
-              <div
-                v-for="row in serviceRows"
-                :key="row.name"
-                class="cr-row cr-svc-row"
-                :class="{ empty: !row.cost }"
-              >
-                <span class="cr-name">{{ row.label }}</span>
-                <span class="cr-val cr-mono">{{ row.cost ? formatCurrency(row.cost) : '—' }}</span>
-                <div class="cr-bar">
-                  <div v-if="row.cost" :style="{ width: row.percent + '%' }"></div>
-                </div>
-                <span class="cr-pct cr-mono">{{ row.cost ? row.percent + '%' : '—' }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top models -->
-        <div class="cr-sec-head">
-          <h3 class="cr-serif">Top models</h3>
-          <span class="cr-sec-meta">
-            Showing {{ displayedModels.length }} of {{ sortedModels.length }}
-          </span>
-        </div>
-        <div class="cr-card">
-          <div v-for="(m, i) in displayedModels" :key="m.model" class="cr-row cr-mod-row">
-            <span class="cr-rank cr-serif">{{ String(i + 1).padStart(2, '0') }}</span>
-            <span class="cr-m">{{ m.model }}</span>
-            <span class="cr-val cr-mono">{{ formatCurrency(m.cost) }}</span>
-            <span class="cr-t cr-mono">{{ formatTokensShort(m.allTokens) }} tok</span>
-          </div>
-          <div v-if="sortedModels.length > 5 && !modelsExpanded" class="cr-mod-more">
-            <a @click="modelsExpanded = true">Expand all →</a>
-          </div>
-          <div v-else-if="modelsExpanded && sortedModels.length > 5" class="cr-mod-more">
-            <a @click="modelsExpanded = false">Collapse ↑</a>
-          </div>
-        </div>
-
-        <!-- Per-key breakdown (multi-key only) -->
-        <template v-if="multiKeyMode && individualStats && individualStats.length">
-          <div class="cr-sec-head">
-            <h3 class="cr-serif">Per-key breakdown</h3>
-            <span class="cr-sec-meta">{{ individualStats.length }} keys</span>
-          </div>
-          <div class="cr-card">
-            <div v-for="(row, i) in perKeyRows" :key="row.id" class="cr-row cr-key-row">
-              <span class="cr-rank cr-serif">{{ String(i + 1).padStart(2, '0') }}</span>
-              <span class="cr-key-name">{{ row.name }}</span>
-              <span class="cr-val cr-mono">{{ formatCurrency(row.cost) }}</span>
-              <span class="cr-t cr-mono">{{ formatTokensShort(row.tokens) }} tok</span>
-            </div>
+        <template v-if="loading && !statsData">
+          <!-- Loading skeleton -->
+          <div class="cr-card cr-loading">
+            <div class="cr-skel cr-skel-hero"></div>
+            <div class="cr-skel cr-skel-row"></div>
+            <div class="cr-skel cr-skel-row"></div>
           </div>
         </template>
+        <template v-else>
+          <!-- Toolbar: identity + period + signout -->
+          <div class="cr-toolbar">
+            <div class="cr-identity">
+              <div class="cr-avatar cr-serif">
+                {{ (statsData?.name || 'K').charAt(0).toUpperCase() }}
+              </div>
+              <div>
+                <div class="cr-id-name">{{ statsData?.name || apiId }}</div>
+                <div class="cr-id-meta">
+                  <span class="cr-status-dot"></span>
+                  {{ statsData?.isActive === false ? 'Inactive' : 'Active' }}
+                  <span v-if="multiKeyMode" class="cr-sep">·</span>
+                  <span v-if="multiKeyMode" class="cr-badge">{{ apiIds.length }} keys</span>
+                  <span v-if="statsData?.expiresAt" class="cr-sep">·</span>
+                  <span v-if="statsData?.expiresAt">Expires {{ expiresInText }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="cr-toolbar-right">
+              <div class="cr-period">
+                <button
+                  :class="{ active: statsPeriod === 'daily' }"
+                  :disabled="loading"
+                  @click="switchPeriod('daily')"
+                >
+                  Today
+                </button>
+                <button
+                  :class="{ active: statsPeriod === 'monthly' }"
+                  :disabled="loading"
+                  @click="switchPeriod('monthly')"
+                >
+                  This month
+                </button>
+                <button
+                  :class="{ active: statsPeriod === 'alltime' }"
+                  :disabled="loading"
+                  @click="switchPeriod('alltime')"
+                >
+                  All time
+                </button>
+              </div>
+              <button class="cr-btn-ghost" @click="handleSignOut">Sign out</button>
+            </div>
+          </div>
 
-        <!-- Footer / alerts / notice modal 续下（Task 12） -->
-        <div class="cr-card" style="padding: 18px; margin-top: 24px">
-          <p>Stats body — continued in Task 12+</p>
+          <!-- Hero row -->
+          <div class="cr-hero-row">
+            <div class="cr-hero">
+              <div class="cr-hero-label">{{ periodLabel }} spend</div>
+              <div class="cr-hero-n cr-serif cr-mono">
+                {{ formatCurrencyHero(currentPeriodData.cost) }}
+              </div>
+              <div class="cr-delta-row">
+                <span
+                  v-if="costDelta !== null"
+                  class="cr-delta"
+                  :class="costDelta < 0 ? 'neg' : ''"
+                >
+                  {{ costDelta >= 0 ? '↑' : '↓' }} {{ Math.abs(costDelta).toFixed(0) }}% vs previous
+                </span>
+                <span class="cr-sub-note">Updated just now</span>
+              </div>
+            </div>
+
+            <div class="cr-kpi">
+              <div class="cr-kpi-label">Tokens</div>
+              <div class="cr-kpi-n cr-serif cr-mono">
+                {{ formatTokensShort(currentPeriodData.allTokens) }}
+              </div>
+              <div class="cr-kpi-d">
+                <span class="cr-pill cr-mono"
+                  >in {{ formatTokensShort(currentPeriodData.inputTokens) }}</span
+                >
+                <span class="cr-pill cr-mono"
+                  >out {{ formatTokensShort(currentPeriodData.outputTokens) }}</span
+                >
+                <span
+                  v-if="
+                    (currentPeriodData.cacheReadTokens || 0) +
+                      (currentPeriodData.cacheCreateTokens || 0) >
+                    0
+                  "
+                  class="cr-pill cr-mono"
+                  >cache
+                  {{
+                    formatTokensShort(
+                      (currentPeriodData.cacheReadTokens || 0) +
+                        (currentPeriodData.cacheCreateTokens || 0)
+                    )
+                  }}</span
+                >
+              </div>
+            </div>
+
+            <div class="cr-kpi">
+              <div class="cr-kpi-label">Requests</div>
+              <div class="cr-kpi-n cr-serif cr-mono">
+                {{ (currentPeriodData.requests || 0).toLocaleString() }}
+              </div>
+              <div class="cr-kpi-d">
+                <span v-if="successRate !== null" class="cr-pill cr-mono"
+                  >success {{ successRate.toFixed(1) }}%</span
+                >
+              </div>
+            </div>
+
+            <div v-if="avgLatencyMs !== null" class="cr-kpi cr-kpi-lat">
+              <div class="cr-kpi-label">Latency</div>
+              <div class="cr-kpi-n cr-serif cr-mono">
+                {{ Math.round(avgLatencyMs) }}<span class="cr-unit">ms</span>
+              </div>
+              <div class="cr-kpi-d">
+                <span class="cr-pill cr-mono">avg</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dual block: quota + services -->
+          <div class="cr-dual">
+            <div>
+              <div class="cr-sec-head">
+                <h3 class="cr-serif">Quota status</h3>
+                <span v-if="quotaRows.length" class="cr-sec-meta"
+                  >{{ quotaRows.length }} limits configured</span
+                >
+                <span v-else class="cr-sec-meta">No limits set</span>
+              </div>
+              <div v-if="quotaRows.length" class="cr-card">
+                <div v-for="row in quotaRows" :key="row.key" class="cr-row cr-lim-row">
+                  <span class="cr-k">{{ row.label }}</span>
+                  <div class="cr-bar">
+                    <div :class="row.stateClass" :style="{ width: row.percent + '%' }"></div>
+                  </div>
+                  <span class="cr-v cr-mono">{{ row.valueText }}</span>
+                  <span class="cr-state" :class="row.stateClass">{{ row.percent }}%</span>
+                </div>
+              </div>
+              <div v-else class="cr-card cr-empty">No limits configured for this key.</div>
+            </div>
+
+            <div>
+              <div class="cr-sec-head">
+                <h3 class="cr-serif">Services</h3>
+                <span class="cr-sec-meta"
+                  >{{ activeServicesCount }} of {{ serviceRows.length }} active</span
+                >
+              </div>
+              <div class="cr-card">
+                <div
+                  v-for="row in serviceRows"
+                  :key="row.name"
+                  class="cr-row cr-svc-row"
+                  :class="{ empty: !row.cost }"
+                >
+                  <span class="cr-name">{{ row.label }}</span>
+                  <span class="cr-val cr-mono">{{
+                    row.cost ? formatCurrency(row.cost) : '—'
+                  }}</span>
+                  <div class="cr-bar">
+                    <div v-if="row.cost" :style="{ width: row.percent + '%' }"></div>
+                  </div>
+                  <span class="cr-pct cr-mono">{{ row.cost ? row.percent + '%' : '—' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top models -->
+          <div class="cr-sec-head">
+            <h3 class="cr-serif">Top models</h3>
+            <span class="cr-sec-meta">
+              Showing {{ displayedModels.length }} of {{ sortedModels.length }}
+            </span>
+          </div>
+          <div class="cr-card">
+            <div v-for="(m, i) in displayedModels" :key="m.model" class="cr-row cr-mod-row">
+              <span class="cr-rank cr-serif">{{ String(i + 1).padStart(2, '0') }}</span>
+              <span class="cr-m">{{ m.model }}</span>
+              <span class="cr-val cr-mono">{{ formatCurrency(m.cost) }}</span>
+              <span class="cr-t cr-mono">{{ formatTokensShort(m.allTokens) }} tok</span>
+            </div>
+            <div v-if="sortedModels.length > 5 && !modelsExpanded" class="cr-mod-more">
+              <a @click="modelsExpanded = true">Expand all →</a>
+            </div>
+            <div v-else-if="modelsExpanded && sortedModels.length > 5" class="cr-mod-more">
+              <a @click="modelsExpanded = false">Collapse ↑</a>
+            </div>
+          </div>
+
+          <!-- Per-key breakdown (multi-key only) -->
+          <template v-if="multiKeyMode && individualStats && individualStats.length">
+            <div class="cr-sec-head">
+              <h3 class="cr-serif">Per-key breakdown</h3>
+              <span class="cr-sec-meta">{{ individualStats.length }} keys</span>
+            </div>
+            <div class="cr-card">
+              <div v-for="(row, i) in perKeyRows" :key="row.id" class="cr-row cr-key-row">
+                <span class="cr-rank cr-serif">{{ String(i + 1).padStart(2, '0') }}</span>
+                <span class="cr-key-name">{{ row.name }}</span>
+                <span class="cr-val cr-mono">{{ formatCurrency(row.cost) }}</span>
+                <span class="cr-t cr-mono">{{ formatTokensShort(row.tokens) }} tok</span>
+              </div>
+            </div>
+          </template>
+        </template>
+
+        <div class="cr-footer">
+          <span
+            ><span class="cr-status-dot"></span
+            >{{ error ? 'Issue detected' : 'All systems operational' }}</span
+          >
+          <span v-if="statsData?.updatedAt" class="cr-mono">Last sync {{ lastSyncText }}</span>
+          <span v-if="appVersion" class="cr-mono">{{ appVersion }}</span>
         </div>
       </section>
     </div>
+
+    <!-- Notification modal (OEM apiStatsNotice) -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showNotice" class="cr-modal-overlay" @click.self="dismissNotice">
+          <div class="cr-card cr-modal" @click.stop>
+            <div class="cr-modal-head">
+              <div class="cr-modal-icon">
+                <i class="fas fa-bell"></i>
+              </div>
+              <h3 class="cr-serif">{{ oemSettings.apiStatsNotice?.title || 'Notice' }}</h3>
+            </div>
+            <p class="cr-modal-body">{{ oemSettings.apiStatsNotice?.content }}</p>
+            <label class="cr-modal-check">
+              <input v-model="dontShowAgain" type="checkbox" />
+              <span>Don't show again this session</span>
+            </label>
+            <button class="cr-btn-primary" @click="dismissNotice">Got it</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useApiStatsStore } from '@/stores/apistats'
 import { useThemeStore } from '@/stores/theme'
@@ -286,6 +334,7 @@ const {
   apiId,
   apiKey,
   loading,
+  error,
   statsPeriod,
   statsData,
   oemSettings,
@@ -518,6 +567,49 @@ const perKeyRows = computed(() => {
     })
     .sort((a, b) => b.cost - a.cost)
 })
+
+// 版本号（若 Vite 未注入 __APP_VERSION__ 宏，显示为空）
+const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : ''
+
+const lastSyncText = computed(() => {
+  const t = statsData.value?.updatedAt
+  if (!t) return ''
+  const sec = Math.round((Date.now() - new Date(t).getTime()) / 1000)
+  if (sec < 60) return `${sec}s ago`
+  if (sec < 3600) return `${Math.round(sec / 60)}m ago`
+  return `${Math.round(sec / 3600)}h ago`
+})
+
+// Notice modal
+const showNotice = ref(false)
+const dontShowAgain = ref(false)
+const NOTICE_STORAGE_KEY = 'apiStatsNoticeRead'
+
+function dismissNotice() {
+  showNotice.value = false
+  if (dontShowAgain.value) {
+    try {
+      sessionStorage.setItem(NOTICE_STORAGE_KEY, '1')
+    } catch (e) {
+      /* ignore */
+    }
+  }
+}
+
+// 监听 OEM 加载 + apiId 就绪后决定是否展示通知
+watch(
+  () => [oemSettings.value?.apiStatsNotice?.enabled, apiId.value],
+  ([enabled, id]) => {
+    if (!enabled || !id) return
+    try {
+      if (sessionStorage.getItem(NOTICE_STORAGE_KEY) !== '1') {
+        showNotice.value = true
+      }
+    } catch (e) {
+      showNotice.value = true
+    }
+  }
+)
 
 onMounted(() => {
   loadOemSettings()
@@ -1081,5 +1173,141 @@ onMounted(() => {
   color: var(--cr-text);
   font-weight: 500;
   word-break: break-all;
+}
+
+.cr-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--cr-danger-soft);
+  border: 1px solid var(--cr-danger);
+  border-radius: 10px;
+  color: var(--cr-danger);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.cr-alert-icon {
+  font-size: 14px;
+}
+
+.cr-loading {
+  padding: 24px;
+}
+.cr-skel {
+  background: linear-gradient(
+    90deg,
+    var(--cr-surface-soft) 25%,
+    var(--cr-border) 50%,
+    var(--cr-surface-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: crshimmer 1.4s infinite;
+  border-radius: 8px;
+}
+.cr-skel-hero {
+  height: 80px;
+  margin-bottom: 12px;
+}
+.cr-skel-row {
+  height: 32px;
+  margin-bottom: 8px;
+}
+@keyframes crshimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.cr-footer {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--cr-border);
+  font-size: 13px;
+  color: var(--cr-text-ter);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 36, 32, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+.cr-modal {
+  max-width: 440px;
+  width: 100%;
+  padding: 24px;
+}
+.cr-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.cr-modal-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--cr-coral-soft);
+  color: var(--cr-coral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cr-modal-head h3 {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--cr-text);
+}
+.cr-modal-body {
+  font-size: 14px;
+  color: var(--cr-text-sec);
+  white-space: pre-wrap;
+  margin-bottom: 14px;
+}
+.cr-modal-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cr-text-sec);
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+.cr-btn-primary {
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--cr-coral);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.cr-btn-primary:hover {
+  background: var(--cr-coral-hover);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
