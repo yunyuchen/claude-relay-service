@@ -1,0 +1,75 @@
+/* 仅由 ApiStatsClaudeView / InsightsClaudeView / 其子 Claude 组件引入。
+   不放到全局入口，避免污染 admin 后台样式。 */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+.cr-theme {
+  --cr-bg: #faf9f5;
+  --cr-surface: #ffffff;
+  --cr-surface-soft: #f5f3ec;
+  --cr-border: #e8e4d9;
+  --cr-border-strong: #d6d1c2;
+  --cr-text: #2b2420;
+  --cr-text-sec: #645d53;
+  --cr-text-ter: #9c9488;
+  --cr-coral: #c96442;
+  --cr-coral-hover: #b0553a;
+  --cr-coral-soft: #faeee5;
+  --cr-ok: #65866e;
+  --cr-ok-soft: #ebf2ec;
+  --cr-warn: #c47e1a;
+  --cr-warn-soft: #fbf1dc;
+  --cr-danger: #b14d3c;
+  --cr-danger-soft: #f7e5df;
+
+  --cr-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --cr-serif: 'Fraunces', 'Source Serif 4', Georgia, serif;
+  --cr-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+.dark .cr-theme,
+.cr-theme.dark {
+  --cr-bg: #1f1b17;
+  --cr-surface: #2a2520;
+  --cr-surface-soft: #34302a;
+  --cr-border: #3f3932;
+  --cr-border-strong: #524b42;
+  --cr-text: #ece6da;
+  --cr-text-sec: #a89f92;
+  --cr-text-ter: #6e665b;
+  --cr-coral: #e6896b;
+  --cr-coral-hover: #eca085;
+  --cr-coral-soft: rgba(230, 137, 107, 0.12);
+  --cr-ok: #8fb098;
+  --cr-ok-soft: rgba(143, 176, 152, 0.12);
+  --cr-warn: #e0a04c;
+  --cr-warn-soft: rgba(224, 160, 76, 0.12);
+  --cr-danger: #d37968;
+  --cr-danger-soft: rgba(211, 121, 104, 0.12);
+}
+
+/* 工具类 */
+.cr-theme {
+  font-family: var(--cr-sans);
+  color: var(--cr-text);
+  background: var(--cr-bg);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.cr-theme .cr-mono {
+  font-family: var(--cr-mono);
+  font-feature-settings: 'tnum';
+  font-variant-numeric: tabular-nums;
+}
+.cr-theme .cr-serif {
+  font-family: var(--cr-serif);
+  font-optical-sizing: auto;
+}
+
+/* 通用卡片 */
+.cr-theme .cr-card {
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-border);
+  border-radius: 16px;
+}
