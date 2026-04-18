@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, onMounted } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useApiStatsStore } from '@/stores/apistats'
 
@@ -13,9 +13,10 @@ const ClaudeView = defineAsyncComponent(() => import('./ApiStatsClaudeView.vue')
 const apiStatsStore = useApiStatsStore()
 const { oemSettings, oemLoading } = storeToRefs(apiStatsStore)
 
-// OEM 加载完成（无论成功或失败）后才决定渲染哪个视图；oemLoading 在 finally 里总会置 false，
-// 即使网络失败也不会死锁到空白页。
-const oemReady = computed(() => !oemLoading.value)
+// Fallback 保险丝：即使 OEM 加载卡住或失败，N 秒后也强制渲染 Legacy
+const timedOut = ref(false)
+
+const oemReady = computed(() => timedOut.value || !oemLoading.value)
 
 const ActiveView = computed(() =>
   oemSettings.value?.useClaudeStyleStats === true ? ClaudeView : LegacyView
@@ -25,5 +26,8 @@ onMounted(() => {
   if (!oemSettings.value?.updatedAt) {
     apiStatsStore.loadOemSettings()
   }
+  setTimeout(() => {
+    timedOut.value = true
+  }, 2500)
 })
 </script>
