@@ -29,11 +29,11 @@
 
 .dark .cr-theme,
 .cr-theme.dark {
-  --cr-bg: #1f1b17;
-  --cr-surface: #2a2520;
-  --cr-surface-soft: #34302a;
-  --cr-border: #3f3932;
-  --cr-border-strong: #524b42;
+  --cr-bg: #1a130d;
+  --cr-surface: #2b2319;
+  --cr-surface-soft: #362d22;
+  --cr-border: #433929;
+  --cr-border-strong: #594d38;
   --cr-text: #ece6da;
   --cr-text-sec: #a89f92;
   --cr-text-ter: #6e665b;
@@ -81,7 +81,7 @@ body.cr-claude-body {
 }
 html.dark:has(body.cr-claude-body),
 html.dark body.cr-claude-body {
-  background: #1f1b17 !important;
+  background: #1a130d !important;
   background-image: none !important;
 }
 

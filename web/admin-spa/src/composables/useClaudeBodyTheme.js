@@ -10,7 +10,7 @@ export function useClaudeBodyTheme() {
   const { isDarkMode } = storeToRefs(themeStore)
 
   const LIGHT_BG = '#FAF9F5'
-  const DARK_BG = '#1F1B17'
+  const DARK_BG = '#1A130D'
 
   function apply() {
     document.body.classList.add('cr-claude-body')
