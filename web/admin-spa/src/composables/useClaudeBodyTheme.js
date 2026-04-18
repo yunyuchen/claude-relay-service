@@ -1,4 +1,4 @@
-import { watch, onMounted, onUnmounted } from 'vue'
+import { watch, onMounted, onUnmounted, unref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useThemeStore } from '@/stores/theme'
 
@@ -6,8 +6,11 @@ import { useThemeStore } from '@/stores/theme'
 // 1) Legacy `body { linear-gradient(--bg-gradient-start...) }` 透过来
 // 2) `body::before` 径向光晕
 // 3) html 自身透明、露出 Element Plus `html.dark { color-scheme: dark }` 触发的浏览器默认灰底
-// 在 ApiStatsClaudeView / InsightsClaudeView 的 setup 中调用即可。
-export function useClaudeBodyTheme() {
+//
+// 用法：
+//   useClaudeBodyTheme()                              // 无条件 apply（在 ClaudeView 中）
+//   useClaudeBodyTheme({ enabled: isClaudeModeRef })  // 根据 ref 条件化 apply（在 Shell 中）
+export function useClaudeBodyTheme(options = {}) {
   const themeStore = useThemeStore()
   const { isDarkMode } = storeToRefs(themeStore)
 
@@ -35,7 +38,15 @@ export function useClaudeBodyTheme() {
     }
   }
 
-  onMounted(apply)
+  function sync() {
+    if (unref(options.enabled) === false) restore()
+    else apply()
+  }
+
+  onMounted(sync)
   onUnmounted(restore)
-  watch(isDarkMode, apply)
+  watch(isDarkMode, sync)
+  if (options.enabled !== undefined) {
+    watch(() => unref(options.enabled), sync)
+  }
 }

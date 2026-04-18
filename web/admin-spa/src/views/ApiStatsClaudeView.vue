@@ -340,10 +340,6 @@ import { useThemeStore } from '@/stores/theme'
 import ApiKeyInputClaude from '@/components/apistats/ApiKeyInputClaude.vue'
 import ThemeToggleClaude from '@/components/common/ThemeToggleClaude.vue'
 import TutorialView from './TutorialView.vue'
-import { useClaudeBodyTheme } from '@/composables/useClaudeBodyTheme'
-import '@/styles/claude-tokens.css'
-
-useClaudeBodyTheme()
 
 const apiStatsStore = useApiStatsStore()
 const themeStore = useThemeStore()

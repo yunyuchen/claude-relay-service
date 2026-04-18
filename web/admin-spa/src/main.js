@@ -10,6 +10,7 @@ import router from './router'
 import { useUserStore } from './stores/user'
 import './assets/styles/main.css'
 import './assets/styles/global.css'
+import './styles/claude-tokens.css'
 
 // 创建Vue应用
 const app = createApp(App)
