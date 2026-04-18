@@ -1831,3 +1831,36 @@ Spec 覆盖：
 占位符扫描：Task 9/10/11 中"字段验证"要求 grep 对齐真实字段名（这是有意保留的 on-the-fly 验证，不是 placeholder）。
 
 类型一致性：`oemSettings.useClaudeStyleStats`、`currentPeriodData.cost` 等命名在所有 task 中保持一致。CSS 变量 `--cr-*` 前缀统一。
+
+---
+
+## Completed
+
+- **分支**: `feat/stats-redesign-claude-style`
+- **实施日期**: 2026-04-18
+- **实施方式**: superpowers:subagent-driven-development（每 task 派 subagent + 双阶段 review）
+- **提交数**: 18（16 task 的 feat + 2 次质量修复 fix + prettier/build 标记）
+
+**核心 commit 序列**：
+
+1. `e99d4e18` feat(oem): useClaudeStyleStats 字段
+2. `a8203583` feat(admin-ui): OEM 开关
+3. `859300cc` + `5ab4595d` refactor: ApiStatsView Shell
+4. `836777f0` refactor: InsightsView Shell
+5. `adb510a7` feat: Claude 风设计令牌
+6. `998df0ec` + `7d9e0510` + `4140ec7c` feat: ApiStatsClaudeView 骨架/Toolbar/Hero
+7. `73437791` + `3caf7b6c` feat + fix: Quota + Services
+8. `5efa0ec6` feat: Top Models
+9. `2ba13ad9` + `72ae626d` feat + fix: Per-key breakdown
+10. `e5271a38` feat: 错误/加载态/通知/footer
+11. `8027bd14` feat: InsightsClaudeView
+12. `93a27f05` fix: 暗色 + 响应式 QA（修了 4 种移动端 row 溢出）
+13. `77d2e043` chore: lint/format/build
+
+**已知跟进项**：
+
+- ESLint config 不支持下划线豁免 unused-vars — `apiKey` 用 eslint-disable 包住，后续可替换为 `no-unused-vars` rule 的 argsIgnorePattern 配置
+- `__APP_VERSION__` 宏通过 vite.config 注入；CI 打包要确保 `process.env.npm_package_version` 有值
+- `src/routes/apiStats.js` 预先存在的 unused-var 错误未修（out of scope），以后另起 task 清理
+- Per-key breakdown 目前 state 列删了（因 individualStats 无 per-key 限额）；后续如果后端能暴露 per-key limits，可补回
+- ApiStats/InsightsClaudeView 之间有少量 CSS 重复（共 ~150 行），按 plan 注释所述暂不抽 shared.css；若出现第三个 Claude 风页面再抽
