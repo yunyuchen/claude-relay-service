@@ -16,25 +16,25 @@
           <span class="cr-brand-text">
             {{ oemSettings.siteName || 'Claude Relay' }}
             <span class="cr-sep">·</span>
-            <span class="cr-brand-sub">Insights</span>
+            <span class="cr-brand-sub">排行榜</span>
           </span>
         </div>
         <div class="cr-nav-links">
-          <router-link class="cr-nav-a" to="/api-stats">Stats</router-link>
-          <ThemeToggle class="cr-theme-toggle" mode="dropdown" />
+          <router-link class="cr-nav-a" to="/api-stats">使用统计</router-link>
+          <ThemeToggleClaude />
           <router-link
             v-if="oemSettings.showAdminButton !== false"
             class="cr-nav-a cr-nav-a-primary"
             to="/dashboard"
-            >Admin</router-link
+            >管理后台</router-link
           >
         </div>
       </nav>
 
       <!-- Page title -->
       <div class="cr-page-title">
-        <h1 class="cr-serif">Insights &amp; rankings</h1>
-        <p>Top users, efficiency leaders, and aggregate spend across your organization.</p>
+        <h1 class="cr-serif">排行榜 &amp; 洞察</h1>
+        <p>全部成员的用量排行、效率分布和聚合花费</p>
       </div>
 
       <!-- Fun stats row (4 cards) -->
@@ -59,27 +59,25 @@
           <div class="cr-fun-name cr-serif cr-fun-big">
             ${{ (funStats.todayCost || 0).toFixed(2) }}
           </div>
-          <div class="cr-fun-meta">
-            {{ (funStats.todayRequests || 0).toLocaleString() }} requests
-          </div>
+          <div class="cr-fun-meta">{{ (funStats.todayRequests || 0).toLocaleString() }} 请求</div>
         </div>
       </div>
 
       <!-- Rank list -->
       <div class="cr-sec-head">
-        <h3 class="cr-serif">Top users</h3>
+        <h3 class="cr-serif">用户排行</h3>
         <div class="cr-period">
           <button :class="{ active: selectedRange === 'today' }" @click="switchRange('today')">
-            Today
+            今日
           </button>
           <button :class="{ active: selectedRange === '7days' }" @click="switchRange('7days')">
-            7 days
+            7 天
           </button>
           <button :class="{ active: selectedRange === '30days' }" @click="switchRange('30days')">
-            30 days
+            30 天
           </button>
           <button :class="{ active: selectedRange === 'all' }" @click="switchRange('all')">
-            All time
+            累计
           </button>
         </div>
       </div>
@@ -103,7 +101,130 @@
           <span class="cr-t cr-mono">{{ formatTokens(row.tokens) }}</span>
         </div>
       </div>
-      <div v-else class="cr-card cr-empty">No data for this range.</div>
+      <div v-else class="cr-card cr-empty">当前时段暂无数据</div>
+
+      <!-- 二级网格：模型热度 + 活跃度 -->
+      <div class="cr-insights-dual">
+        <div>
+          <div class="cr-sec-head">
+            <h3 class="cr-serif">今日模型热度</h3>
+          </div>
+          <div v-if="loadingModels" class="cr-card cr-loading">
+            <div class="cr-skel cr-skel-row"></div>
+            <div class="cr-skel cr-skel-row"></div>
+          </div>
+          <div v-else-if="modelRank.length === 0" class="cr-card cr-empty">暂无数据</div>
+          <div v-else class="cr-card" style="padding: 12px 18px">
+            <div v-for="(m, i) in modelRank.slice(0, 8)" :key="m.model" class="cr-mod-heat-row">
+              <div class="cr-mod-heat-top">
+                <span class="cr-mod-heat-rank cr-mono">{{ String(i + 1).padStart(2, '0') }}</span>
+                <span class="cr-mod-heat-name">{{ m.model }}</span>
+                <span class="cr-mod-heat-val cr-mono">{{ m.requests.toLocaleString() }} 次</span>
+              </div>
+              <div class="cr-bar">
+                <div :style="{ width: getModelBarWidth(m.requests) + '%' }"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="cr-sec-head">
+            <h3 class="cr-serif">近 30 天活跃度</h3>
+          </div>
+          <div v-if="loadingHeatmap" class="cr-card cr-loading">
+            <div class="cr-skel cr-skel-row"></div>
+          </div>
+          <div v-else class="cr-card" style="padding: 14px 18px">
+            <div class="cr-heatmap">
+              <div
+                v-for="day in heatmapData"
+                :key="day.date"
+                class="cr-heatmap-cell"
+                :data-level="getHeatmapLevel(day.requests)"
+                :title="`${day.date}: ${day.requests} 请求`"
+              ></div>
+            </div>
+            <div class="cr-heatmap-legend">
+              <span>少</span>
+              <span class="cr-heatmap-cell" data-level="0"></span>
+              <span class="cr-heatmap-cell" data-level="1"></span>
+              <span class="cr-heatmap-cell" data-level="2"></span>
+              <span class="cr-heatmap-cell" data-level="3"></span>
+              <span class="cr-heatmap-cell" data-level="4"></span>
+              <span>多</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 三级网格：费用趋势 + 时段分布 + 缓存节省 -->
+      <div class="cr-insights-trio">
+        <div>
+          <div class="cr-sec-head">
+            <h3 class="cr-serif">费用趋势 · 近 14 天</h3>
+            <span v-if="overview.costProjection" class="cr-sec-meta">
+              本月预估
+              <span class="cr-mono" style="color: var(--cr-coral)"
+                >${{ overview.costProjection.projected }}</span
+              >
+            </span>
+          </div>
+          <div v-if="loadingOverview" class="cr-card cr-loading">
+            <div class="cr-skel cr-skel-row"></div>
+            <div class="cr-skel cr-skel-row"></div>
+          </div>
+          <div v-else-if="overview.dailyCosts" class="cr-card" style="padding: 14px 18px">
+            <div v-for="day in overview.dailyCosts" :key="day.date" class="cr-trend-row">
+              <span class="cr-trend-date cr-mono">{{ day.date.slice(5) }}</span>
+              <div class="cr-bar">
+                <div :style="{ width: getDailyCostWidth(day.cost) + '%' }"></div>
+              </div>
+              <span class="cr-trend-val cr-mono">${{ day.cost.toFixed(1) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="cr-sec-head"><h3 class="cr-serif">今日时段分布</h3></div>
+          <div v-if="loadingOverview" class="cr-card cr-loading">
+            <div class="cr-skel cr-skel-row"></div>
+          </div>
+          <div v-else-if="overview.hourlyStats" class="cr-card" style="padding: 14px 18px">
+            <div class="cr-hourly">
+              <div
+                v-for="h in overview.hourlyStats"
+                :key="h.hour"
+                class="cr-hourly-bar"
+                :style="{ height: Math.max(4, getHourBarHeight(h.requests)) + '%' }"
+                :title="`${h.hour}:00 · ${h.requests} 请求`"
+              ></div>
+            </div>
+            <div class="cr-hourly-axis">
+              <span>0</span><span>6</span><span>12</span><span>18</span><span>23</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="cr-sec-head"><h3 class="cr-serif">本月缓存节省</h3></div>
+          <div v-if="loadingOverview" class="cr-card cr-loading">
+            <div class="cr-skel cr-skel-row"></div>
+          </div>
+          <div v-else class="cr-card" style="padding: 22px; text-align: center">
+            <div class="cr-cache-n cr-serif cr-mono">
+              ${{ overview.cache?.saving?.toFixed(2) || '0.00' }}
+            </div>
+            <div class="cr-cache-meta">
+              缓存命中率 <span class="cr-mono">{{ overview.cache?.rate || 0 }}%</span>
+            </div>
+            <div class="cr-cache-meta">
+              <span class="cr-mono">{{ formatTokens(overview.cache?.totalCacheReadTokens) }}</span>
+              Token 命中缓存
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -113,7 +234,7 @@ import { ref, computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useApiStatsStore } from '@/stores/apistats'
 import { useThemeStore } from '@/stores/theme'
-import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import ThemeToggleClaude from '@/components/common/ThemeToggleClaude.vue'
 import request from '@/utils/request'
 import '@/styles/claude-tokens.css'
 
@@ -226,10 +347,80 @@ function formatTokens(tokens) {
   return tokens.toString()
 }
 
+// ---- Additional data ----
+const loadingModels = ref(true)
+const loadingHeatmap = ref(true)
+const loadingOverview = ref(true)
+const modelRank = ref([])
+const heatmapData = ref([])
+const overview = ref({})
+
+async function loadModelStats() {
+  loadingModels.value = true
+  try {
+    const result = await request({ url: '/apiStats/insights/models', method: 'GET' })
+    if (result.success) modelRank.value = result.data || []
+  } catch (error) {
+    console.error('Failed to load model stats:', error)
+  } finally {
+    loadingModels.value = false
+  }
+}
+
+async function loadHeatmapData() {
+  loadingHeatmap.value = true
+  try {
+    const result = await request({ url: '/apiStats/insights/activity', method: 'GET' })
+    if (result.success) heatmapData.value = result.data || []
+  } catch (error) {
+    console.error('Failed to load activity:', error)
+  } finally {
+    loadingHeatmap.value = false
+  }
+}
+
+async function loadOverview() {
+  loadingOverview.value = true
+  try {
+    const result = await request({ url: '/apiStats/insights/overview', method: 'GET' })
+    if (result.success) overview.value = result.data || {}
+  } catch (error) {
+    console.error('Failed to load overview:', error)
+  } finally {
+    loadingOverview.value = false
+  }
+}
+
+function getModelBarWidth(requests) {
+  if (modelRank.value.length === 0) return 0
+  const max = modelRank.value[0]?.requests || 1
+  return (requests / max) * 100
+}
+
+function getDailyCostWidth(cost) {
+  const costs = (overview.value.dailyCosts || []).map((d) => d.cost)
+  const max = Math.max(...costs, 0) || 1
+  return (cost / max) * 100
+}
+
+function getHourBarHeight(requests) {
+  const hourly = overview.value.hourlyStats || []
+  const max = Math.max(...hourly.map((h) => h.requests), 0) || 1
+  return (requests / max) * 100
+}
+
+function getHeatmapLevel(requests) {
+  if (!requests) return 0
+  if (requests < 10) return 1
+  if (requests < 50) return 2
+  if (requests < 100) return 3
+  return 4
+}
+
 // ---- Lifecycle ----
 onMounted(() => {
   apiStatsStore.loadOemSettings()
-  loadRankData()
+  Promise.all([loadRankData(), loadModelStats(), loadHeatmapData(), loadOverview()])
 })
 </script>
 
@@ -326,10 +517,6 @@ onMounted(() => {
   color: var(--cr-bg);
   opacity: 0.9;
 }
-:deep(.cr-theme-toggle) {
-  margin: 0 2px;
-}
-
 /* ---- Page title ---- */
 .cr-page-title {
   margin-bottom: 24px;
@@ -361,6 +548,10 @@ onMounted(() => {
   color: var(--cr-text);
   letter-spacing: -0.01em;
   font-weight: 500;
+}
+.cr-sec-head .cr-sec-meta {
+  font-size: 13px;
+  color: var(--cr-text-ter);
 }
 
 /* ---- Period switcher ---- */
@@ -537,5 +728,149 @@ onMounted(() => {
   font-size: 13px;
   color: var(--cr-text-ter);
   text-align: right;
+}
+
+.cr-insights-dual {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-top: 20px;
+}
+@media (min-width: 1024px) {
+  .cr-insights-dual {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+.cr-insights-trio {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-top: 20px;
+}
+@media (min-width: 1024px) {
+  .cr-insights-trio {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+}
+
+.cr-mod-heat-row {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--cr-border);
+}
+.cr-mod-heat-row:last-child {
+  border-bottom: 0;
+}
+.cr-mod-heat-top {
+  display: grid;
+  grid-template-columns: 30px 1fr 90px;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.cr-mod-heat-rank {
+  color: var(--cr-text-ter);
+  font-size: 12px;
+  text-align: center;
+}
+.cr-mod-heat-name {
+  color: var(--cr-text);
+  font-size: 13px;
+  font-weight: 500;
+  word-break: break-all;
+}
+.cr-mod-heat-val {
+  color: var(--cr-text-sec);
+  font-size: 12px;
+  text-align: right;
+}
+
+.cr-heatmap {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+}
+.cr-heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--cr-surface-soft);
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+}
+.cr-heatmap .cr-heatmap-cell {
+  width: 100%;
+  height: auto;
+}
+.cr-heatmap-cell[data-level='1'] {
+  background: var(--cr-coral-soft);
+}
+.cr-heatmap-cell[data-level='2'] {
+  background: color-mix(in srgb, var(--cr-coral) 35%, var(--cr-surface));
+}
+.cr-heatmap-cell[data-level='3'] {
+  background: color-mix(in srgb, var(--cr-coral) 70%, var(--cr-surface));
+}
+.cr-heatmap-cell[data-level='4'] {
+  background: var(--cr-coral);
+}
+.cr-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--cr-text-ter);
+}
+
+.cr-trend-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 70px;
+  gap: 10px;
+  align-items: center;
+  padding: 5px 0;
+}
+.cr-trend-date,
+.cr-trend-val {
+  font-size: 12px;
+  color: var(--cr-text-sec);
+}
+.cr-trend-val {
+  text-align: right;
+  color: var(--cr-text);
+  font-weight: 500;
+}
+
+.cr-hourly {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  align-items: end;
+  gap: 2px;
+  height: 100px;
+}
+.cr-hourly-bar {
+  background: var(--cr-coral);
+  border-radius: 2px 2px 0 0;
+  min-height: 4px;
+}
+.cr-hourly-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--cr-text-ter);
+}
+
+.cr-cache-n {
+  font-size: 36px;
+  font-weight: 500;
+  color: var(--cr-coral);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.cr-cache-meta {
+  font-size: 12px;
+  color: var(--cr-text-ter);
+  margin-top: 3px;
 }
 </style>

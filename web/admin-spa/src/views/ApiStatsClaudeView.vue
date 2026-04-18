@@ -16,18 +16,18 @@
           <span class="cr-brand-text">
             {{ oemSettings.siteName || 'Claude Relay' }}
             <span class="cr-sep">·</span>
-            <span class="cr-brand-sub">Stats</span>
+            <span class="cr-brand-sub">统计</span>
           </span>
         </div>
         <div class="cr-nav-links">
-          <router-link class="cr-nav-a" to="/insights">Insights</router-link>
-          <a class="cr-nav-a" @click="currentTab = 'tutorial'">Tutorial</a>
-          <ThemeToggle class="cr-theme-toggle" mode="dropdown" />
+          <router-link class="cr-nav-a" to="/insights">排行榜</router-link>
+          <a class="cr-nav-a" @click="currentTab = 'tutorial'">使用教程</a>
+          <ThemeToggleClaude />
           <router-link
             v-if="oemSettings.showAdminButton !== false"
             class="cr-nav-a cr-nav-a-primary"
             to="/dashboard"
-            >Admin</router-link
+            >管理后台</router-link
           >
         </div>
       </nav>
@@ -35,8 +35,8 @@
       <!-- 登录态：未输入 API Key -->
       <section v-if="!apiId && currentTab !== 'tutorial'" class="cr-auth">
         <div class="cr-card cr-auth-card">
-          <h1 class="cr-serif cr-auth-title">Enter your API key</h1>
-          <p class="cr-auth-sub">Sign in to view your usage, quota and model breakdown.</p>
+          <h1 class="cr-serif cr-auth-title">输入 API Key</h1>
+          <p class="cr-auth-sub">输入你的 API Key 查看用量、限额和模型使用情况</p>
           <ApiKeyInputClaude />
         </div>
       </section>
@@ -44,8 +44,8 @@
       <!-- 教程 tab -->
       <section v-else-if="currentTab === 'tutorial'" class="cr-tut">
         <div class="cr-page-title">
-          <a class="cr-back" @click="currentTab = 'stats'">← Back to stats</a>
-          <h1 class="cr-serif">Usage tutorial</h1>
+          <a class="cr-back" @click="currentTab = 'stats'">← 返回统计</a>
+          <h1 class="cr-serif">使用教程</h1>
         </div>
         <div class="cr-card cr-tut-card">
           <TutorialView />
@@ -55,8 +55,8 @@
       <!-- 统计主体 -->
       <section v-else class="cr-main">
         <div class="cr-page-title">
-          <h1 class="cr-serif">Your API usage</h1>
-          <p>Track spend, limits, and model breakdown across all connected services.</p>
+          <h1 class="cr-serif">我的用量</h1>
+          <p>查看花费、限额和各服务的模型使用情况</p>
         </div>
 
         <!-- Inline error -->
@@ -84,11 +84,11 @@
                 <div class="cr-id-name">{{ statsData?.name || apiId }}</div>
                 <div class="cr-id-meta">
                   <span class="cr-status-dot"></span>
-                  {{ statsData?.isActive === false ? 'Inactive' : 'Active' }}
+                  {{ statsData?.isActive === false ? '已停用' : '活跃' }}
                   <span v-if="multiKeyMode" class="cr-sep">·</span>
-                  <span v-if="multiKeyMode" class="cr-badge">{{ apiIds.length }} keys</span>
+                  <span v-if="multiKeyMode" class="cr-badge">{{ apiIds.length }} 个 Key</span>
                   <span v-if="statsData?.expiresAt" class="cr-sep">·</span>
-                  <span v-if="statsData?.expiresAt">Expires {{ expiresInText }}</span>
+                  <span v-if="statsData?.expiresAt">{{ expiresInText }} 过期</span>
                 </div>
               </div>
             </div>
@@ -99,31 +99,31 @@
                   :disabled="loading"
                   @click="switchPeriod('daily')"
                 >
-                  Today
+                  今日
                 </button>
                 <button
                   :class="{ active: statsPeriod === 'monthly' }"
                   :disabled="loading"
                   @click="switchPeriod('monthly')"
                 >
-                  This month
+                  本月
                 </button>
                 <button
                   :class="{ active: statsPeriod === 'alltime' }"
                   :disabled="loading"
                   @click="switchPeriod('alltime')"
                 >
-                  All time
+                  全部
                 </button>
               </div>
-              <button class="cr-btn-ghost" @click="handleSignOut">Sign out</button>
+              <button class="cr-btn-ghost" @click="handleSignOut">退出</button>
             </div>
           </div>
 
           <!-- Hero row -->
           <div class="cr-hero-row">
             <div class="cr-hero">
-              <div class="cr-hero-label">{{ periodLabel }} spend</div>
+              <div class="cr-hero-label">{{ periodLabel }}花费</div>
               <div class="cr-hero-n cr-serif cr-mono">
                 {{ formatCurrencyHero(currentPeriodData.cost) }}
               </div>
@@ -133,23 +133,23 @@
                   class="cr-delta"
                   :class="costDelta < 0 ? 'neg' : ''"
                 >
-                  {{ costDelta >= 0 ? '↑' : '↓' }} {{ Math.abs(costDelta).toFixed(0) }}% vs previous
+                  {{ costDelta >= 0 ? '↑' : '↓' }} {{ Math.abs(costDelta).toFixed(0) }}% 对比上期
                 </span>
-                <span class="cr-sub-note">Updated just now</span>
+                <span class="cr-sub-note">刚刚更新</span>
               </div>
             </div>
 
             <div class="cr-kpi">
-              <div class="cr-kpi-label">Tokens</div>
+              <div class="cr-kpi-label">Token</div>
               <div class="cr-kpi-n cr-serif cr-mono">
                 {{ formatTokensShort(currentPeriodData.allTokens) }}
               </div>
               <div class="cr-kpi-d">
                 <span class="cr-pill cr-mono"
-                  >in {{ formatTokensShort(currentPeriodData.inputTokens) }}</span
+                  >输入 {{ formatTokensShort(currentPeriodData.inputTokens) }}</span
                 >
                 <span class="cr-pill cr-mono"
-                  >out {{ formatTokensShort(currentPeriodData.outputTokens) }}</span
+                  >输出 {{ formatTokensShort(currentPeriodData.outputTokens) }}</span
                 >
                 <span
                   v-if="
@@ -158,7 +158,7 @@
                     0
                   "
                   class="cr-pill cr-mono"
-                  >cache
+                  >缓存
                   {{
                     formatTokensShort(
                       (currentPeriodData.cacheReadTokens || 0) +
@@ -170,24 +170,24 @@
             </div>
 
             <div class="cr-kpi">
-              <div class="cr-kpi-label">Requests</div>
+              <div class="cr-kpi-label">请求</div>
               <div class="cr-kpi-n cr-serif cr-mono">
                 {{ (currentPeriodData.requests || 0).toLocaleString() }}
               </div>
               <div class="cr-kpi-d">
                 <span v-if="successRate !== null" class="cr-pill cr-mono"
-                  >success {{ successRate.toFixed(1) }}%</span
+                  >成功率 {{ successRate.toFixed(1) }}%</span
                 >
               </div>
             </div>
 
             <div v-if="avgLatencyMs !== null" class="cr-kpi cr-kpi-lat">
-              <div class="cr-kpi-label">Latency</div>
+              <div class="cr-kpi-label">延迟</div>
               <div class="cr-kpi-n cr-serif cr-mono">
                 {{ Math.round(avgLatencyMs) }}<span class="cr-unit">ms</span>
               </div>
               <div class="cr-kpi-d">
-                <span class="cr-pill cr-mono">avg</span>
+                <span class="cr-pill cr-mono">均值</span>
               </div>
             </div>
           </div>
@@ -196,11 +196,11 @@
           <div class="cr-dual">
             <div>
               <div class="cr-sec-head">
-                <h3 class="cr-serif">Quota status</h3>
+                <h3 class="cr-serif">额度状态</h3>
                 <span v-if="quotaRows.length" class="cr-sec-meta"
-                  >{{ quotaRows.length }} limits configured</span
+                  >已配置 {{ quotaRows.length }} 项限额</span
                 >
-                <span v-else class="cr-sec-meta">No limits set</span>
+                <span v-else class="cr-sec-meta">未配置限额</span>
               </div>
               <div v-if="quotaRows.length" class="cr-card">
                 <div v-for="row in quotaRows" :key="row.key" class="cr-row cr-lim-row">
@@ -212,14 +212,14 @@
                   <span class="cr-state" :class="row.stateClass">{{ row.percent }}%</span>
                 </div>
               </div>
-              <div v-else class="cr-card cr-empty">No limits configured for this key.</div>
+              <div v-else class="cr-card cr-empty">当前 Key 未配置任何限额</div>
             </div>
 
             <div>
               <div class="cr-sec-head">
-                <h3 class="cr-serif">Services</h3>
+                <h3 class="cr-serif">服务分布</h3>
                 <span class="cr-sec-meta"
-                  >{{ activeServicesCount }} of {{ serviceRows.length }} active</span
+                  >{{ serviceRows.length }} 项中 {{ activeServicesCount }} 项在用</span
                 >
               </div>
               <div class="cr-card">
@@ -244,9 +244,9 @@
 
           <!-- Top models -->
           <div class="cr-sec-head">
-            <h3 class="cr-serif">Top models</h3>
+            <h3 class="cr-serif">模型排行</h3>
             <span class="cr-sec-meta">
-              Showing {{ displayedModels.length }} of {{ sortedModels.length }}
+              展示 {{ displayedModels.length }} / {{ sortedModels.length }}
             </span>
           </div>
           <div class="cr-card">
@@ -257,18 +257,18 @@
               <span class="cr-t cr-mono">{{ formatTokensShort(m.allTokens) }} tok</span>
             </div>
             <div v-if="sortedModels.length > 5 && !modelsExpanded" class="cr-mod-more">
-              <a @click="modelsExpanded = true">Expand all →</a>
+              <a @click="modelsExpanded = true">展开全部 →</a>
             </div>
             <div v-else-if="modelsExpanded && sortedModels.length > 5" class="cr-mod-more">
-              <a @click="modelsExpanded = false">Collapse ↑</a>
+              <a @click="modelsExpanded = false">收起 ↑</a>
             </div>
           </div>
 
           <!-- Per-key breakdown (multi-key only) -->
           <template v-if="multiKeyMode && individualStats && individualStats.length">
             <div class="cr-sec-head">
-              <h3 class="cr-serif">Per-key breakdown</h3>
-              <span class="cr-sec-meta">{{ individualStats.length }} keys</span>
+              <h3 class="cr-serif">分 Key 明细</h3>
+              <span class="cr-sec-meta">共 {{ individualStats.length }} 个 Key</span>
             </div>
             <div class="cr-card">
               <div v-for="(row, i) in perKeyRows" :key="row.id" class="cr-row cr-key-row">
@@ -282,11 +282,8 @@
         </template>
 
         <div class="cr-footer">
-          <span
-            ><span class="cr-status-dot"></span
-            >{{ error ? 'Issue detected' : 'All systems operational' }}</span
-          >
-          <span v-if="statsData?.updatedAt" class="cr-mono">Last sync {{ lastSyncText }}</span>
+          <span><span class="cr-status-dot"></span>{{ error ? '检测到问题' : '系统正常' }}</span>
+          <span v-if="statsData?.updatedAt" class="cr-mono">{{ lastSyncText }}同步</span>
           <span v-if="appVersion" class="cr-mono">{{ appVersion }}</span>
         </div>
       </section>
@@ -301,14 +298,14 @@
               <div class="cr-modal-icon">
                 <i class="fas fa-bell"></i>
               </div>
-              <h3 class="cr-serif">{{ oemSettings.apiStatsNotice?.title || 'Notice' }}</h3>
+              <h3 class="cr-serif">{{ oemSettings.apiStatsNotice?.title || '通知' }}</h3>
             </div>
             <p class="cr-modal-body">{{ oemSettings.apiStatsNotice?.content }}</p>
             <label class="cr-modal-check">
               <input v-model="dontShowAgain" type="checkbox" />
-              <span>Don't show again this session</span>
+              <span>本次会话不再显示</span>
             </label>
-            <button class="cr-btn-primary" @click="dismissNotice">Got it</button>
+            <button class="cr-btn-primary" @click="dismissNotice">知道了</button>
           </div>
         </div>
       </Transition>
@@ -322,7 +319,7 @@ import { storeToRefs } from 'pinia'
 import { useApiStatsStore } from '@/stores/apistats'
 import { useThemeStore } from '@/stores/theme'
 import ApiKeyInputClaude from '@/components/apistats/ApiKeyInputClaude.vue'
-import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import ThemeToggleClaude from '@/components/common/ThemeToggleClaude.vue'
 import TutorialView from './TutorialView.vue'
 import '@/styles/claude-tokens.css'
 
@@ -349,11 +346,7 @@ const { loadOemSettings, loadApiKeyFromStorage, loadServiceRates, switchPeriod, 
   apiStatsStore
 
 const periodLabel = computed(() =>
-  statsPeriod.value === 'daily'
-    ? 'Today'
-    : statsPeriod.value === 'monthly'
-      ? 'This month'
-      : 'All time'
+  statsPeriod.value === 'daily' ? '今日' : statsPeriod.value === 'monthly' ? '本月' : '全部'
 )
 
 const currentPeriodData = computed(() => apiStatsStore.currentPeriodData)
@@ -399,11 +392,11 @@ const expiresInText = computed(() => {
   const exp = statsData.value?.expiresAt
   if (!exp) return ''
   const days = Math.max(0, Math.round((new Date(exp) - Date.now()) / 86400000))
-  if (days === 0) return 'today'
-  if (days === 1) return 'in 1 day'
-  if (days < 30) return `in ${days} days`
-  if (days < 365) return `in ${Math.round(days / 30)} months`
-  return `in ${Math.round(days / 365)} years`
+  if (days === 0) return '今日'
+  if (days === 1) return '1 天后'
+  if (days < 30) return `${days} 天后`
+  if (days < 365) return `${Math.round(days / 30)} 个月后`
+  return `${Math.round(days / 365)} 年后`
 })
 
 function handleSignOut() {
@@ -421,7 +414,7 @@ const quotaRows = computed(() => {
     const pct = Math.min(100, Math.round((used / limits.totalCostLimit) * 100))
     rows.push({
       key: 'totalCost',
-      label: 'Total cost',
+      label: '总花费',
       percent: pct,
       valueText: `$${used.toFixed(2)} / $${Number(limits.totalCostLimit).toFixed(2)}`,
       stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
@@ -434,7 +427,7 @@ const quotaRows = computed(() => {
     const pct = Math.min(100, Math.round((used / limits.dailyCostLimit) * 100))
     rows.push({
       key: 'daily',
-      label: 'Daily cost',
+      label: '今日花费',
       percent: pct,
       valueText: `$${used.toFixed(2)} / $${Number(limits.dailyCostLimit).toFixed(2)}`,
       stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
@@ -447,7 +440,7 @@ const quotaRows = computed(() => {
     const pct = Math.min(100, Math.round((used / limits.tokenLimit) * 100))
     rows.push({
       key: 'token',
-      label: 'Tokens',
+      label: 'Token',
       percent: pct,
       valueText: `${used.toLocaleString()} / ${Number(limits.tokenLimit).toLocaleString()}`,
       stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
@@ -460,7 +453,7 @@ const quotaRows = computed(() => {
     const pct = Math.min(100, Math.round((used / limits.rateLimitRequests) * 100))
     rows.push({
       key: 'requests',
-      label: 'Requests',
+      label: '请求/分',
       percent: pct,
       valueText: `${used} / ${limits.rateLimitRequests}`,
       stateClass: pct >= 90 ? 'danger' : pct >= 60 ? 'warn' : 'ok'
@@ -575,9 +568,9 @@ const lastSyncText = computed(() => {
   const t = statsData.value?.updatedAt
   if (!t) return ''
   const sec = Math.round((Date.now() - new Date(t).getTime()) / 1000)
-  if (sec < 60) return `${sec}s ago`
-  if (sec < 3600) return `${Math.round(sec / 60)}m ago`
-  return `${Math.round(sec / 3600)}h ago`
+  if (sec < 60) return `${sec} 秒前`
+  if (sec < 3600) return `${Math.round(sec / 60)} 分钟前`
+  return `${Math.round(sec / 3600)} 小时前`
 })
 
 // Notice modal
@@ -710,10 +703,6 @@ onMounted(() => {
   color: var(--cr-bg);
   opacity: 0.9;
 }
-:deep(.cr-theme-toggle) {
-  margin: 0 2px;
-}
-
 .cr-page-title {
   margin-bottom: 24px;
 }
