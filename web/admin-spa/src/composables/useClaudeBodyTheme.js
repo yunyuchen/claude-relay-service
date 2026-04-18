@@ -1,4 +1,4 @@
-import { watch, onMounted, onUnmounted, unref } from 'vue'
+import { watch, onUnmounted, unref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useThemeStore } from '@/stores/theme'
 
@@ -8,17 +8,36 @@ import { useThemeStore } from '@/stores/theme'
 // 3) html 自身透明、露出 Element Plus `html.dark { color-scheme: dark }` 触发的浏览器默认灰底
 //
 // 用法：
-//   useClaudeBodyTheme()                              // 无条件 apply（在 ClaudeView 中）
-//   useClaudeBodyTheme({ enabled: isClaudeModeRef })  // 根据 ref 条件化 apply（在 Shell 中）
+//   useClaudeBodyTheme()                              // 无条件 apply
+//   useClaudeBodyTheme({ enabled: isClaudeModeRef })  // 根据 ref 条件化
+//
+// 实现说明：
+//   - setup 阶段立即同步 apply/restore 一次，不等 onMounted，避免首帧闪烁
+//   - isDarkMode 直接从 localStorage + media query 读取，不依赖 themeStore.initTheme
+//     （initTheme 在 App.vue onMounted 里调，比子组件 setup 晚）
+//   - enabled 默认 true；若 OEM 尚未加载时调用方传入 undefined 态 ref，按 true 处理
+const LIGHT_BG = '#FAF9F5'
+const DARK_BG = '#221812'
+
+function detectDarkSync() {
+  try {
+    const saved = localStorage.getItem('themeMode')
+    if (saved === 'dark') return true
+    if (saved === 'light') return false
+  } catch (_) {
+    // localStorage 不可用时走 media query
+  }
+  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
 export function useClaudeBodyTheme(options = {}) {
   const themeStore = useThemeStore()
   const { isDarkMode } = storeToRefs(themeStore)
 
-  const LIGHT_BG = '#FAF9F5'
-  const DARK_BG = '#221812'
-
   function apply() {
-    const bg = isDarkMode.value ? DARK_BG : LIGHT_BG
+    // themeStore 未 init 时，isDarkMode 可能还没反映真实状态，退回同步检测
+    const dark = isDarkMode.value || detectDarkSync()
+    const bg = dark ? DARK_BG : LIGHT_BG
     document.body.classList.add('cr-claude-body')
     document.documentElement.classList.add('cr-claude-root')
     for (const el of [document.documentElement, document.body]) {
@@ -43,7 +62,9 @@ export function useClaudeBodyTheme(options = {}) {
     else apply()
   }
 
-  onMounted(sync)
+  // setup 阶段立即执行一次（document.body / documentElement 已存在）
+  sync()
+
   onUnmounted(restore)
   watch(isDarkMode, sync)
   if (options.enabled !== undefined) {

@@ -16,7 +16,11 @@ const { oemSettings } = storeToRefs(apiStatsStore)
 
 // flag 未就绪时默认走 Legacy（体验优先：立即渲染，避免白屏等 OEM）。
 // OEM 加载完成后若 flag=true，自动切到 Claude 视图（短暂一次重渲染）。
-const isClaudeMode = computed(() => oemSettings.value?.useClaudeStyleStats === true)
+// OEM 未加载完成时，乐观假设按 Claude 处理，避免首屏冷色闪烁。
+// OEM 加载后若 flag=false，会自动 restore 回 Legacy。
+const isClaudeMode = computed(() =>
+  oemSettings.value?.updatedAt ? oemSettings.value?.useClaudeStyleStats === true : true
+)
 
 const ActiveView = computed(() => (isClaudeMode.value ? ClaudeView : LegacyView))
 

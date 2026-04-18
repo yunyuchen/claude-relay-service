@@ -14,7 +14,9 @@ const ClaudeView = defineAsyncComponent(() => import('./InsightsClaudeView.vue')
 const apiStatsStore = useApiStatsStore()
 const { oemSettings } = storeToRefs(apiStatsStore)
 
-const isClaudeMode = computed(() => oemSettings.value?.useClaudeStyleStats === true)
+const isClaudeMode = computed(() =>
+  oemSettings.value?.updatedAt ? oemSettings.value?.useClaudeStyleStats === true : true
+)
 
 const ActiveView = computed(() => (isClaudeMode.value ? ClaudeView : LegacyView))
 
