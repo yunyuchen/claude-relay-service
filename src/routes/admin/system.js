@@ -107,6 +107,7 @@ router.get('/oem-settings', async (req, res) => {
         title: '',
         content: ''
       },
+      useClaudeStyleStats: false, // 是否使用 Claude.ai 风 /api-stats + /insights 视图
       updatedAt: new Date().toISOString()
     }
 
@@ -136,7 +137,14 @@ router.get('/oem-settings', async (req, res) => {
 // 更新OEM设置
 router.put('/oem-settings', authenticateAdmin, async (req, res) => {
   try {
-    const { siteName, siteIcon, siteIconData, showAdminButton, apiStatsNotice } = req.body
+    const {
+      siteName,
+      siteIcon,
+      siteIconData,
+      showAdminButton,
+      apiStatsNotice,
+      useClaudeStyleStats
+    } = req.body
 
     // 验证输入
     if (!siteName || typeof siteName !== 'string' || siteName.trim().length === 0) {
@@ -173,6 +181,7 @@ router.put('/oem-settings', authenticateAdmin, async (req, res) => {
         title: (apiStatsNotice?.title || '').trim().slice(0, 100),
         content: (apiStatsNotice?.content || '').trim().slice(0, 2000)
       },
+      useClaudeStyleStats: useClaudeStyleStats === true, // 显式 true 才启用
       updatedAt: new Date().toISOString()
     }
 
