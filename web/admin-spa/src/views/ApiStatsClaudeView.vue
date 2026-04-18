@@ -388,7 +388,8 @@ const KNOWN_SERVICES = [
   { key: 'gemini', label: 'Gemini' },
   { key: 'droid', label: 'Droid' },
   { key: 'bedrock', label: 'Bedrock' },
-  { key: 'azure', label: 'Azure OpenAI' }
+  { key: 'azure', label: 'Azure OpenAI' },
+  { key: 'ccr', label: 'CCR' }
 ]
 
 function getServiceFromModel(model) {
@@ -414,7 +415,7 @@ const serviceRows = computed(() => {
   models.forEach((model) => {
     const svc = getServiceFromModel(model.model)
     if (stats[svc] !== undefined) {
-      stats[svc] += model.costs?.total || 0
+      stats[svc] += model.costs?.real ?? model.costs?.total ?? 0
     }
   })
 
