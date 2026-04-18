@@ -1034,12 +1034,20 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
-  align-items: start;
 }
 @media (min-width: 1280px) {
   .cr-dual {
     grid-template-columns: 1fr 1fr;
   }
+}
+/* 让左右两侧子 wrapper 成为弹性列，内部的 card/head 顶对齐，card 拉伸到底 */
+.cr-dual > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cr-dual > div > .cr-card {
+  flex: 1;
 }
 .cr-row {
   display: grid;
@@ -1163,7 +1171,6 @@ onMounted(() => {
   padding: 28px 22px;
   align-content: center;
   justify-items: center;
-  min-height: 340px;
   grid-template-columns: 1fr;
 }
 .cr-rings.n-2 {
@@ -1179,7 +1186,6 @@ onMounted(() => {
   .cr-rings.n-3,
   .cr-rings.n-4 {
     grid-template-columns: 1fr;
-    min-height: 0;
     padding: 18px;
   }
 }
