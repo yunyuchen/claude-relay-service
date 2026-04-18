@@ -243,9 +243,26 @@
           </div>
         </div>
 
-        <!-- Per-key breakdown / footer 续下（后续任务） -->
+        <!-- Per-key breakdown (multi-key only) -->
+        <template v-if="multiKeyMode && individualStats && individualStats.length">
+          <div class="cr-sec-head">
+            <h3 class="cr-serif">Per-key breakdown</h3>
+            <span class="cr-sec-meta">{{ individualStats.length }} keys</span>
+          </div>
+          <div class="cr-card">
+            <div v-for="(row, i) in perKeyRows" :key="row.id" class="cr-row cr-key-row">
+              <span class="cr-rank cr-serif">{{ String(i + 1).padStart(2, '0') }}</span>
+              <span class="cr-key-name">{{ row.name }}</span>
+              <span class="cr-val cr-mono">{{ formatCurrency(row.cost) }}</span>
+              <span class="cr-t cr-mono">{{ formatTokensShort(row.tokens) }} tok</span>
+              <span class="cr-state" :class="row.stateClass">{{ row.stateLabel }}</span>
+            </div>
+          </div>
+        </template>
+
+        <!-- Footer / alerts / notice modal 续下（Task 12） -->
         <div class="cr-card" style="padding: 18px; margin-top: 24px">
-          <p>Stats body — continued in Task 11+</p>
+          <p>Stats body — continued in Task 12+</p>
         </div>
       </section>
     </div>
@@ -275,7 +292,8 @@ const {
   oemSettings,
   multiKeyMode,
   apiIds,
-  modelStats
+  modelStats,
+  individualStats
 } = storeToRefs(apiStatsStore)
 /* eslint-enable no-unused-vars */
 
@@ -477,6 +495,35 @@ function formatCurrency(v) {
   const n = Number(v) || 0
   return '$' + n.toFixed(2)
 }
+
+const perKeyRows = computed(() => {
+  if (!multiKeyMode.value || !individualStats.value) return []
+  return individualStats.value
+    .map((k) => {
+      let usagePeriod
+      if (statsPeriod.value === 'daily') {
+        usagePeriod = k?.dailyUsage
+      } else if (statsPeriod.value === 'monthly') {
+        usagePeriod = k?.monthlyUsage
+      } else {
+        usagePeriod = k?.alltimeUsage
+      }
+      const cost = Number(usagePeriod?.cost ?? 0)
+      const tokens = Number(usagePeriod?.allTokens ?? 0)
+      // Per-key limits are not available; all keys show OK state
+      const stateClass = 'ok'
+      const stateLabel = 'OK'
+      return {
+        id: k.apiId || k.id || k.name,
+        name: k.name || k.apiId || 'unnamed',
+        cost,
+        tokens,
+        stateClass,
+        stateLabel
+      }
+    })
+    .sort((a, b) => b.cost - a.cost)
+})
 
 onMounted(() => {
   loadOemSettings()
@@ -1030,5 +1077,15 @@ onMounted(() => {
 .cr-mod-more a:hover {
   color: var(--cr-coral-hover);
   text-decoration: underline;
+}
+.cr-key-row {
+  grid-template-columns: 32px 1fr 110px 120px 80px;
+  gap: 14px;
+}
+.cr-key-row .cr-key-name {
+  font-size: 14px;
+  color: var(--cr-text);
+  font-weight: 500;
+  word-break: break-all;
 }
 </style>
