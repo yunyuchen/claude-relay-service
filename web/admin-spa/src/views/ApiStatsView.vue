@@ -1,5 +1,5 @@
 <template>
-  <component :is="ActiveView" />
+  <component :is="ActiveView" v-if="oemReady" />
 </template>
 
 <script setup>
@@ -13,14 +13,15 @@ const ClaudeView = defineAsyncComponent(() => import('./ApiStatsClaudeView.vue')
 const apiStatsStore = useApiStatsStore()
 const { oemSettings } = storeToRefs(apiStatsStore)
 
-// Shell 在 OEM 加载完成前默认走 Legacy 以避免闪烁
+// OEM 加载完成后才决定渲染哪个视图，避免 flag=true 用户先看到 Legacy 再切 Claude 的闪烁
+const oemReady = computed(() => !!oemSettings.value?.updatedAt)
+
 const ActiveView = computed(() =>
   oemSettings.value?.useClaudeStyleStats === true ? ClaudeView : LegacyView
 )
 
 onMounted(() => {
-  // 如果 store 之前没加载过 OEM，这里兜底加载一次
-  if (typeof apiStatsStore.loadOemSettings === 'function' && !oemSettings.value?.updatedAt) {
+  if (!oemSettings.value?.updatedAt) {
     apiStatsStore.loadOemSettings()
   }
 })
