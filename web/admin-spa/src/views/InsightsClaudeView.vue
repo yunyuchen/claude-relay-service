@@ -236,7 +236,10 @@ import { useApiStatsStore } from '@/stores/apistats'
 import { useThemeStore } from '@/stores/theme'
 import ThemeToggleClaude from '@/components/common/ThemeToggleClaude.vue'
 import request from '@/utils/request'
+import { useClaudeBodyTheme } from '@/composables/useClaudeBodyTheme'
 import '@/styles/claude-tokens.css'
+
+useClaudeBodyTheme()
 
 // ---- Store / theme ----
 const apiStatsStore = useApiStatsStore()

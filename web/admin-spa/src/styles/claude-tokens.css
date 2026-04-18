@@ -67,6 +67,11 @@
   font-optical-sizing: auto;
 }
 
+/* Claude 视图激活时屏蔽 Legacy 的 body::before 径向光晕 */
+body.cr-claude-body::before {
+  display: none !important;
+}
+
 /* 通用卡片 */
 .cr-theme .cr-card {
   background: var(--cr-surface);
