@@ -319,6 +319,7 @@ class Application {
           }
 
           // 其他所有路径返回 index.html（SPA 路由）
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
           res.sendFile(path.join(adminSpaPath, 'index.html'))
         })
 
