@@ -21,13 +21,14 @@ const logger = require('../utils/logger')
 /** 时间范围更新间隔配置（省资源模式） */
 const UPDATE_INTERVALS = {
   today: 10 * 60 * 1000, // 10分钟
+  yesterday: 60 * 60 * 1000, // 1小时（昨日数据不再变动，慢节奏即可）
   '7days': 30 * 60 * 1000, // 30分钟
   '30days': 60 * 60 * 1000, // 1小时
   all: 2 * 60 * 60 * 1000 // 2小时
 }
 
 /** 支持的时间范围列表 */
-const VALID_TIME_RANGES = ['today', '7days', '30days', 'all']
+const VALID_TIME_RANGES = ['today', 'yesterday', '7days', '30days', 'all']
 
 /** 分布式锁超时时间（秒） */
 const LOCK_TTL = 300
@@ -566,6 +567,12 @@ class CostRankService {
     switch (timeRange) {
       case 'today':
         return { startDate: today, endDate: today }
+      case 'yesterday': {
+        const y = new Date(now)
+        y.setDate(y.getDate() - 1)
+        const yStr = redis.getDateStringInTimezone(y)
+        return { startDate: yStr, endDate: yStr }
+      }
       case '7days': {
         const d7 = new Date(now)
         d7.setDate(d7.getDate() - 6)

@@ -102,6 +102,13 @@
                   今日
                 </button>
                 <button
+                  :class="{ active: statsPeriod === 'yesterday' }"
+                  :disabled="loading"
+                  @click="switchPeriod('yesterday')"
+                >
+                  昨日
+                </button>
+                <button
                   :class="{ active: statsPeriod === 'monthly' }"
                   :disabled="loading"
                   @click="switchPeriod('monthly')"
@@ -348,9 +355,10 @@ const {
 const { loadOemSettings, loadApiKeyFromStorage, loadServiceRates, switchPeriod, reset } =
   apiStatsStore
 
-const periodLabel = computed(() =>
-  statsPeriod.value === 'daily' ? '今日' : statsPeriod.value === 'monthly' ? '本月' : '全部'
-)
+const periodLabel = computed(() => {
+  const map = { daily: '今日', yesterday: '昨日', monthly: '本月', alltime: '全部' }
+  return map[statsPeriod.value] || '今日'
+})
 
 const currentPeriodData = computed(() => apiStatsStore.currentPeriodData)
 
@@ -616,22 +624,22 @@ onMounted(() => {
 
 <style scoped>
 .cr-page {
-  padding: 24px;
+  padding: 18px;
   position: relative;
 }
 @media (min-width: 1024px) {
   .cr-page {
-    padding: 32px 48px;
+    padding: 24px 40px;
   }
 }
 @media (min-width: 1440px) {
   .cr-page {
-    padding: 40px 80px;
+    padding: 28px 64px;
   }
 }
 @media (min-width: 1920px) {
   .cr-page {
-    padding: 48px 120px;
+    padding: 32px 96px;
   }
 }
 
@@ -639,7 +647,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 16px;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -707,19 +715,19 @@ onMounted(() => {
   opacity: 0.9;
 }
 .cr-page-title {
-  margin-bottom: 24px;
+  margin-bottom: 14px;
 }
 .cr-page-title h1 {
   font-weight: 500;
-  font-size: 32px;
+  font-size: 28px;
   letter-spacing: -0.02em;
   color: var(--cr-text);
   line-height: 1.1;
 }
 .cr-page-title p {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--cr-text-sec);
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .cr-auth {
@@ -766,8 +774,8 @@ onMounted(() => {
   background: var(--cr-surface);
   border: 1px solid var(--cr-border);
   border-radius: 12px;
-  padding: 10px 16px 10px 10px;
-  margin-bottom: 28px;
+  padding: 8px 14px 8px 8px;
+  margin-bottom: 14px;
 }
 .cr-identity {
   display: flex;
@@ -874,8 +882,8 @@ onMounted(() => {
 .cr-hero-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 14px;
-  margin-bottom: 28px;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 @media (max-width: 1200px) {
   .cr-hero-row {
@@ -900,7 +908,7 @@ onMounted(() => {
   background: var(--cr-surface);
   border: 1px solid var(--cr-border);
   border-radius: 16px;
-  padding: 24px 28px;
+  padding: 18px 22px;
   position: relative;
   overflow: hidden;
 }
@@ -921,11 +929,11 @@ onMounted(() => {
   position: relative;
 }
 .cr-hero-n {
-  font-size: 56px;
+  font-size: 44px;
   line-height: 1.05;
   letter-spacing: -0.03em;
   color: var(--cr-text);
-  margin-top: 8px;
+  margin-top: 6px;
   position: relative;
   font-weight: 500;
 }
@@ -1000,12 +1008,12 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin: 32px 0 12px 0;
+  margin: 20px 0 8px 0;
   gap: 12px;
   flex-wrap: wrap;
 }
 .cr-sec-head h3 {
-  font-size: 20px;
+  font-size: 17px;
   color: var(--cr-text);
   letter-spacing: -0.01em;
   font-weight: 500;
@@ -1017,7 +1025,8 @@ onMounted(() => {
 .cr-dual {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 24px;
+  gap: 16px;
+  align-items: start;
 }
 @media (min-width: 1280px) {
   .cr-dual {
@@ -1027,7 +1036,7 @@ onMounted(() => {
 .cr-row {
   display: grid;
   align-items: center;
-  padding: 14px 22px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--cr-border);
   gap: 16px;
 }
@@ -1135,7 +1144,7 @@ onMounted(() => {
   }
 }
 .cr-empty {
-  padding: 18px 22px;
+  padding: 14px 18px;
   color: var(--cr-text-ter);
   font-size: 13px;
 }
@@ -1173,7 +1182,7 @@ onMounted(() => {
   }
 }
 .cr-mod-more {
-  padding: 14px 22px;
+  padding: 10px 18px;
   display: flex;
   justify-content: center;
   border-top: 1px solid var(--cr-border);
@@ -1255,10 +1264,10 @@ onMounted(() => {
 }
 
 .cr-footer {
-  margin-top: 40px;
-  padding-top: 24px;
+  margin-top: 22px;
+  padding-top: 14px;
   border-top: 1px solid var(--cr-border);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--cr-text-ter);
   display: flex;
   justify-content: space-between;

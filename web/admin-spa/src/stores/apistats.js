@@ -15,9 +15,11 @@ export const useApiStatsStore = defineStore('apistats', () => {
   const statsData = ref(null)
   const modelStats = ref([])
   const dailyModelStats = ref([])
+  const yesterdayModelStats = ref([])
   const monthlyModelStats = ref([])
   const alltimeModelStats = ref([])
   const dailyStats = ref(null)
+  const yesterdayStats = ref(null)
   const monthlyStats = ref(null)
   const alltimeStats = ref(null)
   const oemSettings = ref({
@@ -57,6 +59,8 @@ export const useApiStatsStore = defineStore('apistats', () => {
     if (multiKeyMode.value && aggregatedStats.value) {
       if (statsPeriod.value === 'daily') {
         return aggregatedStats.value.dailyUsage || defaultData
+      } else if (statsPeriod.value === 'yesterday') {
+        return aggregatedStats.value.yesterdayUsage || defaultData
       } else if (statsPeriod.value === 'monthly') {
         return aggregatedStats.value.monthlyUsage || defaultData
       } else {
@@ -67,6 +71,8 @@ export const useApiStatsStore = defineStore('apistats', () => {
     // 单个 Key 模式下使用原有逻辑
     if (statsPeriod.value === 'daily') {
       return dailyStats.value || defaultData
+    } else if (statsPeriod.value === 'yesterday') {
+      return yesterdayStats.value || defaultData
     } else if (statsPeriod.value === 'monthly') {
       return monthlyStats.value || defaultData
     } else {
@@ -245,6 +251,8 @@ export const useApiStatsStore = defineStore('apistats', () => {
         // 存储到对应的时间段数据
         if (period === 'daily') {
           dailyStats.value = summary
+        } else if (period === 'yesterday') {
+          yesterdayStats.value = summary
         } else if (period === 'monthly') {
           monthlyStats.value = summary
         } else if (period === 'alltime') {
@@ -297,6 +305,7 @@ export const useApiStatsStore = defineStore('apistats', () => {
     // 如果对应时间段的数据还没有加载，则加载它
     if (
       (period === 'daily' && !dailyStats.value) ||
+      (period === 'yesterday' && !yesterdayStats.value) ||
       (period === 'monthly' && !monthlyStats.value) ||
       (period === 'alltime' && !alltimeStats.value)
     ) {
@@ -551,9 +560,11 @@ export const useApiStatsStore = defineStore('apistats', () => {
     statsData.value = null
     modelStats.value = []
     dailyModelStats.value = []
+    yesterdayModelStats.value = []
     monthlyModelStats.value = []
     alltimeModelStats.value = []
     dailyStats.value = null
+    yesterdayStats.value = null
     monthlyStats.value = null
     alltimeStats.value = null
     error.value = ''
@@ -587,9 +598,11 @@ export const useApiStatsStore = defineStore('apistats', () => {
     statsData,
     modelStats,
     dailyModelStats,
+    yesterdayModelStats,
     monthlyModelStats,
     alltimeModelStats,
     dailyStats,
+    yesterdayStats,
     monthlyStats,
     alltimeStats,
     oemSettings,

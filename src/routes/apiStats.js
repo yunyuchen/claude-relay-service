@@ -811,23 +811,28 @@ router.post('/api/batch-model-stats', async (req, res) => {
     const _client = redis.getClientSafe()
     const tzDate = redis.getDateInTimezone()
     const today = redis.getDateStringInTimezone()
+    const yDate = new Date()
+    yDate.setDate(yDate.getDate() - 1)
+    const yesterday = redis.getDateStringInTimezone(yDate)
     const currentMonth = `${tzDate.getFullYear()}-${String(tzDate.getMonth() + 1).padStart(2, '0')}`
 
+    const isDaily = period === 'daily'
+    const isYesterday = period === 'yesterday'
     const modelUsageMap = new Map()
 
     // 并行查询所有 API Key 的模型统计
     await Promise.all(
       apiIds.map(async (apiId) => {
-        const pattern =
-          period === 'daily'
-            ? `usage:${apiId}:model:daily:*:${today}`
-            : `usage:${apiId}:model:monthly:*:${currentMonth}`
+        let pattern
+        if (isDaily) pattern = `usage:${apiId}:model:daily:*:${today}`
+        else if (isYesterday) pattern = `usage:${apiId}:model:daily:*:${yesterday}`
+        else pattern = `usage:${apiId}:model:monthly:*:${currentMonth}`
 
         const results = await redis.scanAndGetAllChunked(pattern)
 
         for (const { key, data } of results) {
           const match = key.match(
-            period === 'daily'
+            isDaily || isYesterday
               ? /usage:.+:model:daily:(.+):\d{4}-\d{2}-\d{2}$/
               : /usage:.+:model:monthly:(.+):\d{4}-\d{2}$/
           )
@@ -1406,6 +1411,12 @@ router.post('/api/user-model-stats', async (req, res) => {
     if (period === 'daily') {
       pattern = `usage:${keyId}:model:daily:*:${today}`
       matchRegex = /usage:.+:model:daily:(.+):\d{4}-\d{2}-\d{2}$/
+    } else if (period === 'yesterday') {
+      const yDate = new Date()
+      yDate.setDate(yDate.getDate() - 1)
+      const yesterday = redis.getDateStringInTimezone(yDate)
+      pattern = `usage:${keyId}:model:daily:*:${yesterday}`
+      matchRegex = /usage:.+:model:daily:(.+):\d{4}-\d{2}-\d{2}$/
     } else if (period === 'alltime') {
       pattern = `usage:${keyId}:model:alltime:*`
       matchRegex = /usage:.+:model:alltime:(.+)$/
@@ -1682,7 +1693,7 @@ const costRankService = require('../services/costRankService')
 router.get('/insights/ranking', async (req, res) => {
   try {
     const { timeRange = 'today', limit = 10 } = req.query
-    const validRanges = ['today', '7days', '30days', 'all']
+    const validRanges = ['today', 'yesterday', '7days', '30days', 'all']
     if (!validRanges.includes(timeRange)) {
       return res.status(400).json({ success: false, error: 'Invalid time range' })
     }
@@ -1730,13 +1741,19 @@ router.get('/insights/ranking', async (req, res) => {
       }
     }
 
-    // 对于 today/7days/30days，聚合对应日期范围的 daily 数据
+    // 对于 today/yesterday/7days/30days，聚合对应日期范围的 daily 数据
     let usageResults = []
     if (timeRange !== 'all') {
-      if (timeRange === 'today') {
+      if (timeRange === 'today' || timeRange === 'yesterday') {
+        let date = today
+        if (timeRange === 'yesterday') {
+          const yDate = new Date()
+          yDate.setDate(yDate.getDate() - 1)
+          date = redis.getDateStringInTimezone(yDate)
+        }
         const pipeline = client.pipeline()
         for (const keyId of sortedKeyIds) {
-          pipeline.hgetall(`usage:daily:${keyId}:${today}`)
+          pipeline.hgetall(`usage:daily:${keyId}:${date}`)
         }
         usageResults = await pipeline.exec()
       } else {

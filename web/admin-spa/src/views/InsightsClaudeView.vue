@@ -70,6 +70,12 @@
           <button :class="{ active: selectedRange === 'today' }" @click="switchRange('today')">
             今日
           </button>
+          <button
+            :class="{ active: selectedRange === 'yesterday' }"
+            @click="switchRange('yesterday')"
+          >
+            昨日
+          </button>
           <button :class="{ active: selectedRange === '7days' }" @click="switchRange('7days')">
             7 天
           </button>
@@ -252,7 +258,7 @@ const loadingRank = ref(true)
 const selectedRange = ref('today')
 
 const rangeLabel = computed(() => {
-  const map = { today: '今日', '7days': '7天', '30days': '30天', all: '累计' }
+  const map = { today: '今日', yesterday: '昨日', '7days': '7天', '30days': '30天', all: '累计' }
   return map[selectedRange.value] || '今日'
 })
 
