@@ -105,9 +105,77 @@
           </div>
         </div>
 
-        <!-- Hero / Quota+Services / Models / Per-key 续下（后续任务） -->
+        <!-- Hero row -->
+        <div class="cr-hero-row">
+          <div class="cr-hero">
+            <div class="cr-hero-label">{{ periodLabel }} spend</div>
+            <div class="cr-hero-n cr-serif cr-mono">
+              {{ formatCurrencyHero(currentPeriodData.cost) }}
+            </div>
+            <div class="cr-delta-row">
+              <span v-if="costDelta !== null" class="cr-delta" :class="costDelta < 0 ? 'neg' : ''">
+                {{ costDelta >= 0 ? '↑' : '↓' }} {{ Math.abs(costDelta).toFixed(0) }}% vs previous
+              </span>
+              <span class="cr-sub-note">Updated just now</span>
+            </div>
+          </div>
+
+          <div class="cr-kpi">
+            <div class="cr-kpi-label">Tokens</div>
+            <div class="cr-kpi-n cr-serif cr-mono">
+              {{ formatTokensShort(currentPeriodData.allTokens) }}
+            </div>
+            <div class="cr-kpi-d">
+              <span class="cr-pill cr-mono"
+                >in {{ formatTokensShort(currentPeriodData.inputTokens) }}</span
+              >
+              <span class="cr-pill cr-mono"
+                >out {{ formatTokensShort(currentPeriodData.outputTokens) }}</span
+              >
+              <span
+                v-if="
+                  (currentPeriodData.cacheReadTokens || 0) +
+                    (currentPeriodData.cacheCreateTokens || 0) >
+                  0
+                "
+                class="cr-pill cr-mono"
+                >cache
+                {{
+                  formatTokensShort(
+                    (currentPeriodData.cacheReadTokens || 0) +
+                      (currentPeriodData.cacheCreateTokens || 0)
+                  )
+                }}</span
+              >
+            </div>
+          </div>
+
+          <div class="cr-kpi">
+            <div class="cr-kpi-label">Requests</div>
+            <div class="cr-kpi-n cr-serif cr-mono">
+              {{ (currentPeriodData.requests || 0).toLocaleString() }}
+            </div>
+            <div class="cr-kpi-d">
+              <span v-if="successRate !== null" class="cr-pill cr-mono"
+                >success {{ successRate.toFixed(1) }}%</span
+              >
+            </div>
+          </div>
+
+          <div v-if="avgLatencyMs !== null" class="cr-kpi cr-kpi-lat">
+            <div class="cr-kpi-label">Latency</div>
+            <div class="cr-kpi-n cr-serif cr-mono">
+              {{ Math.round(avgLatencyMs) }}<span class="cr-unit">ms</span>
+            </div>
+            <div class="cr-kpi-d">
+              <span class="cr-pill cr-mono">avg</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dual / Models / Per-key 续下（后续任务） -->
         <div class="cr-card" style="padding: 18px; margin-top: 24px">
-          <p>Stats body — continued in Task 8+</p>
+          <p>Stats body — continued in Task 9+</p>
         </div>
       </section>
     </div>
@@ -133,6 +201,49 @@ const { apiId, apiKey, loading, statsPeriod, statsData, oemSettings, multiKeyMod
 
 const { loadOemSettings, loadApiKeyFromStorage, loadServiceRates, switchPeriod, reset } =
   apiStatsStore
+
+const periodLabel = computed(() =>
+  statsPeriod.value === 'daily'
+    ? 'Today'
+    : statsPeriod.value === 'monthly'
+      ? 'This month'
+      : 'All time'
+)
+
+const currentPeriodData = computed(() => apiStatsStore.currentPeriodData)
+
+const costDelta = computed(() => {
+  // 若后端提供 previous period cost 则计算；否则 null 不渲染 delta
+  const cur = currentPeriodData.value?.cost || 0
+  const prev = currentPeriodData.value?.previousCost
+  if (prev == null || prev === 0) return null
+  return ((cur - prev) / prev) * 100
+})
+
+const successRate = computed(() => {
+  const total = currentPeriodData.value?.requests || 0
+  const failed = currentPeriodData.value?.failedRequests
+  if (!total || failed == null) return null
+  return ((total - failed) / total) * 100
+})
+
+const avgLatencyMs = computed(() => {
+  const ms = currentPeriodData.value?.avgLatencyMs
+  return typeof ms === 'number' && isFinite(ms) ? ms : null
+})
+
+function formatCurrencyHero(cost) {
+  if (cost == null) return '$0.00'
+  return '$' + (Number(cost) || 0).toFixed(2)
+}
+
+function formatTokensShort(n) {
+  n = Number(n) || 0
+  if (n >= 1e9) return (n / 1e9).toFixed(2).replace(/\.?0+$/, '') + 'B'
+  if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'M'
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.?0+$/, '') + 'K'
+  return String(n)
+}
 
 const isDarkMode = computed(() => themeStore.isDarkMode)
 
@@ -420,5 +531,130 @@ onMounted(() => {
 }
 .cr-period > button:hover:not(.active):not(:disabled) {
   color: var(--cr-text);
+}
+
+.cr-hero-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+@media (max-width: 1200px) {
+  .cr-hero-row {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+  .cr-hero-row .cr-kpi-lat {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .cr-hero-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .cr-hero-row .cr-hero {
+    grid-column: 1 / -1;
+  }
+  .cr-hero-row .cr-kpi-lat {
+    display: block;
+  }
+}
+.cr-hero {
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-border);
+  border-radius: 16px;
+  padding: 24px 28px;
+  position: relative;
+  overflow: hidden;
+}
+.cr-hero::before {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, var(--cr-coral-soft) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cr-hero-label {
+  font-size: 13px;
+  color: var(--cr-text-sec);
+  font-weight: 500;
+  position: relative;
+}
+.cr-hero-n {
+  font-size: 56px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--cr-text);
+  margin-top: 8px;
+  position: relative;
+  font-weight: 500;
+}
+.cr-delta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  position: relative;
+  flex-wrap: wrap;
+}
+.cr-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--cr-ok-soft);
+  color: var(--cr-ok);
+}
+.cr-delta.neg {
+  background: var(--cr-danger-soft);
+  color: var(--cr-danger);
+}
+.cr-sub-note {
+  font-size: 13px;
+  color: var(--cr-text-sec);
+}
+.cr-kpi {
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-border);
+  border-radius: 16px;
+  padding: 18px 22px;
+}
+.cr-kpi-label {
+  font-size: 13px;
+  color: var(--cr-text-sec);
+  font-weight: 500;
+}
+.cr-kpi-n {
+  font-size: 30px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-top: 6px;
+  color: var(--cr-text);
+  font-weight: 500;
+}
+.cr-kpi-n .cr-unit {
+  color: var(--cr-text-ter);
+  font-size: 18px;
+  font-weight: 400;
+  font-family: var(--cr-sans);
+}
+.cr-kpi-d {
+  font-size: 12px;
+  color: var(--cr-text-ter);
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cr-pill {
+  background: var(--cr-surface-soft);
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--cr-text-sec);
 }
 </style>
