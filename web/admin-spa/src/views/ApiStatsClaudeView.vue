@@ -209,14 +209,26 @@
                 >
                 <span v-else class="cr-sec-meta">未配置限额</span>
               </div>
-              <div v-if="quotaRows.length" class="cr-card">
-                <div v-for="row in quotaRows" :key="row.key" class="cr-row cr-lim-row">
-                  <span class="cr-k">{{ row.label }}</span>
-                  <div class="cr-bar">
-                    <div :class="row.stateClass" :style="{ width: row.percent + '%' }"></div>
+              <div
+                v-if="quotaRows.length"
+                class="cr-card cr-rings"
+                :class="`n-${quotaRows.length}`"
+              >
+                <div
+                  v-for="row in quotaRows"
+                  :key="row.key"
+                  class="cr-ring"
+                  :class="row.stateClass"
+                >
+                  <div class="cr-ring-circle" :style="{ '--pct': row.percent + '%' }">
+                    <div class="cr-ring-core">
+                      <div class="cr-ring-pct cr-serif cr-mono">
+                        {{ row.percent }}<span class="cr-ring-pct-unit">%</span>
+                      </div>
+                      <div class="cr-ring-lbl">{{ row.label }}</div>
+                    </div>
                   </div>
-                  <span class="cr-v cr-mono">{{ row.valueText }}</span>
-                  <span class="cr-state" :class="row.stateClass">{{ row.percent }}%</span>
+                  <div class="cr-ring-meta cr-mono">{{ row.valueText }}</div>
                 </div>
               </div>
               <div v-else class="cr-card cr-empty">当前 Key 未配置任何限额</div>
@@ -1147,6 +1159,103 @@ onMounted(() => {
   padding: 14px 18px;
   color: var(--cr-text-ter);
   font-size: 13px;
+}
+
+.cr-rings {
+  display: grid;
+  gap: 24px 20px;
+  padding: 28px 22px;
+  align-content: center;
+  justify-items: center;
+  min-height: 340px;
+  grid-template-columns: 1fr;
+}
+.cr-rings.n-2 {
+  grid-template-columns: 1fr 1fr;
+}
+.cr-rings.n-3,
+.cr-rings.n-4 {
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 600px) {
+  .cr-rings,
+  .cr-rings.n-2,
+  .cr-rings.n-3,
+  .cr-rings.n-4 {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding: 18px;
+  }
+}
+.cr-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.cr-ring-circle {
+  --pct: 0%;
+  --ring-color: var(--cr-ok);
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: conic-gradient(var(--ring-color) var(--pct), var(--cr-surface-soft) var(--pct));
+  display: grid;
+  place-items: center;
+  transition: background 0.4s ease;
+}
+.cr-rings.n-2 .cr-ring-circle,
+.cr-rings.n-3 .cr-ring-circle,
+.cr-rings.n-4 .cr-ring-circle {
+  width: 140px;
+  height: 140px;
+}
+.cr-ring.warn .cr-ring-circle {
+  --ring-color: var(--cr-warn);
+}
+.cr-ring.danger .cr-ring-circle {
+  --ring-color: var(--cr-danger);
+}
+.cr-ring-core {
+  width: calc(100% - 24px);
+  height: calc(100% - 24px);
+  border-radius: 50%;
+  background: var(--cr-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.cr-ring-pct {
+  font-size: 30px;
+  font-weight: 500;
+  color: var(--cr-text);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.cr-rings.n-2 .cr-ring-pct,
+.cr-rings.n-3 .cr-ring-pct,
+.cr-rings.n-4 .cr-ring-pct {
+  font-size: 24px;
+}
+.cr-ring-pct-unit {
+  font-size: 0.55em;
+  color: var(--cr-text-sec);
+  margin-left: 2px;
+  font-weight: 400;
+}
+.cr-ring-lbl {
+  font-size: 12px;
+  color: var(--cr-text-sec);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+.cr-ring-meta {
+  font-size: 12px;
+  color: var(--cr-text-ter);
+  text-align: center;
+  word-break: break-all;
 }
 .cr-mod-row {
   grid-template-columns: 32px 1fr 110px 100px;
