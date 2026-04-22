@@ -335,12 +335,14 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRoute } from 'vue-router'
 import { useApiStatsStore } from '@/stores/apistats'
 import { useThemeStore } from '@/stores/theme'
 import ApiKeyInputClaude from '@/components/apistats/ApiKeyInputClaude.vue'
 import ThemeToggleClaude from '@/components/common/ThemeToggleClaude.vue'
 import TutorialView from './TutorialView.vue'
 
+const route = useRoute()
 const apiStatsStore = useApiStatsStore()
 const themeStore = useThemeStore()
 
@@ -356,12 +358,21 @@ const {
   multiKeyMode,
   apiIds,
   modelStats,
-  individualStats
+  individualStats,
+  serviceRates,
+  keyServiceRates
 } = storeToRefs(apiStatsStore)
 /* eslint-enable no-unused-vars */
 
-const { loadOemSettings, loadApiKeyFromStorage, loadServiceRates, switchPeriod, reset } =
-  apiStatsStore
+const {
+  loadOemSettings,
+  loadApiKeyFromStorage,
+  loadServiceRates,
+  switchPeriod,
+  reset,
+  queryStats,
+  loadStatsWithApiId
+} = apiStatsStore
 
 const periodLabel = computed(() => {
   const map = { daily: '今日', yesterday: '昨日', monthly: '本月', alltime: '全部' }
@@ -505,6 +516,12 @@ function getServiceFromModel(model) {
   return 'claude'
 }
 
+function getEffectiveRate(service) {
+  const globalRate = serviceRates.value?.rates?.[service] || 1.0
+  const keyRate = multiKeyMode.value ? 1.0 : (keyServiceRates.value?.[service] ?? 1.0)
+  return globalRate * keyRate
+}
+
 const serviceRows = computed(() => {
   const stats = {}
   KNOWN_SERVICES.forEach(({ key }) => {
@@ -515,7 +532,12 @@ const serviceRows = computed(() => {
   models.forEach((model) => {
     const svc = getServiceFromModel(model.model)
     if (stats[svc] !== undefined) {
-      stats[svc] += model.costs?.real ?? model.costs?.total ?? 0
+      const realCost = model.costs?.real ?? model.costs?.total ?? 0
+      const ratedCost =
+        !model.isLegacy && model.costs?.rated !== undefined
+          ? model.costs.rated
+          : realCost * getEffectiveRate(svc)
+      stats[svc] += ratedCost
     }
   })
 
@@ -539,11 +561,19 @@ const modelsExpanded = ref(false)
 const sortedModels = computed(() => {
   const raw = apiStatsStore.modelStats || []
   return [...raw]
-    .map((m) => ({
-      model: m.model || m.name || 'unknown',
-      cost: Number(m.costs?.real ?? m.costs?.total ?? m.cost ?? m.totalCost ?? 0),
-      allTokens: Number(m.allTokens ?? m.tokens ?? m.totalTokens ?? 0)
-    }))
+    .map((m) => {
+      const svc = getServiceFromModel(m.model)
+      const realCost = Number(m.costs?.real ?? m.costs?.total ?? m.cost ?? m.totalCost ?? 0)
+      const ratedCost =
+        !m.isLegacy && m.costs?.rated !== undefined
+          ? Number(m.costs.rated)
+          : realCost * getEffectiveRate(svc)
+      return {
+        model: m.model || m.name || 'unknown',
+        cost: ratedCost,
+        allTokens: Number(m.allTokens ?? m.tokens ?? m.totalTokens ?? 0)
+      }
+    })
     .sort((a, b) => b.cost - a.cost)
 })
 
@@ -625,8 +655,32 @@ watch(
 
 onMounted(() => {
   loadOemSettings()
-  loadApiKeyFromStorage()
   loadServiceRates()
+
+  // Check URL parameters first
+  const urlApiId = route.query.apiId
+  const urlApiKey = route.query.apiKey
+
+  if (
+    urlApiId &&
+    urlApiId.match(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i)
+  ) {
+    apiId.value = urlApiId
+    const savedApiKey = loadApiKeyFromStorage()
+    if (savedApiKey) {
+      apiKey.value = savedApiKey
+    }
+    loadStatsWithApiId()
+  } else if (urlApiKey && urlApiKey.length > 10) {
+    apiKey.value = urlApiKey
+  } else {
+    // No URL params, check localStorage
+    const savedApiKey = loadApiKeyFromStorage()
+    if (savedApiKey && savedApiKey.length > 10) {
+      apiKey.value = savedApiKey
+      queryStats()
+    }
+  }
 })
 </script>
 

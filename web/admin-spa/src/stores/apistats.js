@@ -243,7 +243,7 @@ export const useApiStatsStore = defineStore('apistats', () => {
           summary.cacheCreateTokens += model.cacheCreateTokens || 0
           summary.cacheReadTokens += model.cacheReadTokens || 0
           summary.allTokens += model.allTokens || 0
-          summary.cost += model.costs?.total || 0
+          summary.cost += model.costs?.rated ?? model.costs?.total ?? 0
         })
 
         summary.formattedCost = formatCost(summary.cost)
